@@ -15,8 +15,8 @@ Step-by-step guide to configure all external services needed to run the project.
 ### Enable Firestore
 1. In Firebase Console → Build → Firestore Database
 2. Click "Create database"
-3. Start in **test mode** (we'll add security rules later)
-4. Choose region closest to your users (e.g., `europe-west1` for UA)
+3. Start in **production mode** (we'll add security rules in step 6)
+4. Choose region: **us-central1** (required for Firebase free Spark tier)
 
 ### Enable Authentication
 1. Build → Authentication → Get started
@@ -211,9 +211,33 @@ CRON_SECRET=...
 
 ### Post-deployment
 1. **Register Telegram webhook** (see section 2 above) — use the production URL
-2. **Verify cron** — Vercel dashboard → Settings → Cron Jobs should show `/api/cron/reminders` every 10 min
+2. **Set up external cron** (see section 5b below) — Vercel free tier only supports daily cron
 3. **Test booking** — visit your-domain.vercel.app, book an appointment
 4. **Test Telegram** — open bot, send /start, confirm appointment
+
+---
+
+## 5b. External Cron Service (free tier workaround)
+
+Vercel's free Hobby tier limits cron jobs to **once per day**. The reminder system needs to run every 10 minutes. Use a free external cron service instead.
+
+### Option A: cron-job.org (recommended)
+1. Sign up at [cron-job.org](https://cron-job.org/) (free tier: unlimited jobs, 1-min intervals)
+2. Create a new cron job:
+   - **URL:** `https://your-domain.vercel.app/api/cron/reminders`
+   - **Schedule:** Every 10 minutes (`*/10 * * * *`)
+   - **Request method:** GET
+   - **Headers:** add `Authorization: Bearer <YOUR_CRON_SECRET>`
+3. Enable and save
+
+### Option B: UptimeRobot
+1. Sign up at [uptimerobot.com](https://uptimerobot.com/) (free tier: 5-min minimum interval)
+2. Add new monitor → HTTP(s) → type the URL
+3. Set check interval to 5 minutes (closest to 10-min available on free tier)
+4. Add custom HTTP header: `Authorization: Bearer <YOUR_CRON_SECRET>`
+
+### Remove Vercel cron config
+Since we're using an external service, remove or comment out the cron config in `vercel.json` to avoid confusion.
 
 ---
 
