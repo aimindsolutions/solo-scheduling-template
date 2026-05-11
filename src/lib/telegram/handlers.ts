@@ -367,6 +367,9 @@ async function handleTimeSelection(chatId: number, dateStr: string, timeStr: str
       durationMinutes,
       description: `Phone: ${session.phone}\nSource: Telegram`,
     });
+    if (googleCalendarEventId) {
+      await confirmCalendarEvent(googleCalendarEventId);
+    }
   } catch {}
 
   await adminDb.collection("appointments").add({
