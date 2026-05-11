@@ -146,6 +146,30 @@ async function handleCallbackQuery(query: {
     });
   }
 
+  if (action === "owner_cancel") {
+    const aptDoc = await adminDb.collection("appointments").doc(appointmentId).get();
+    if (!aptDoc.exists) return;
+
+    const apt = aptDoc.data()!;
+    await adminDb.collection("appointments").doc(appointmentId).update({
+      status: "cancelled",
+      updatedAt: Timestamp.now(),
+    });
+
+    if (apt.googleCalendarEventId) {
+      try { await deleteCalendarEvent(apt.googleCalendarEventId); } catch {}
+    }
+
+    if (apt.clientId) {
+      try {
+        const { notifyClientOfCancellation } = await import("./notifications");
+        await notifyClientOfCancellation({ clientId: apt.clientId, dateTime: apt.dateTime });
+      } catch {}
+    }
+
+    await sendMessage(chatId, `✅ Запис скасовано: ${apt.clientName}`);
+  }
+
   if (action === "date") {
     await handleDateSelection(chatId, query.data.replace("date:", ""), lang);
   }
@@ -233,6 +257,22 @@ async function handleMessage(message: {
   if (text === "/cancel") {
     await showCancelMenu(chatId, lang);
     return;
+  }
+
+  if (text === "/today") {
+    const config = await getConfig();
+    if (config?.ownerTelegramChatId === String(chatId)) {
+      await showOwnerDayOverview(chatId);
+      return;
+    }
+  }
+
+  if (text === "/admin_cancel") {
+    const config = await getConfig();
+    if (config?.ownerTelegramChatId === String(chatId)) {
+      await showOwnerCancelMenu(chatId);
+      return;
+    }
   }
 
   // Handle booking flow state (phone via contact sharing)
@@ -564,4 +604,66 @@ async function showMyAppointments(chatId: number, lang: string) {
   });
 
   await sendMessage(chatId, (lang === "uk" ? "📋 Ваші записи:\n\n" : "📋 Your appointments:\n\n") + lines.join("\n"));
+}
+
+async function showOwnerDayOverview(chatId: number) {
+  const now = new Date();
+  const dayStart = new Date(now);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(now);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  const snap = await adminDb
+    .collection("appointments")
+    .where("dateTime", ">=", dayStart)
+    .where("dateTime", "<=", dayEnd)
+    .orderBy("dateTime", "asc")
+    .get();
+
+  const active = snap.docs.filter((d) => d.data().status !== "cancelled");
+
+  if (active.length === 0) {
+    await sendMessage(chatId, "📋 Сьогодні немає записів.");
+    return;
+  }
+
+  const lines = active.map((doc) => {
+    const d = doc.data();
+    const time = format(d.dateTime.toDate(), "HH:mm");
+    const status = d.status === "confirmed" ? "✅" : "⏳";
+    const phone = d.clientPhone ? ` | ${d.clientPhone}` : "";
+    const notes = d.notes ? `\n   💬 ${d.notes}` : "";
+    return `${status} <b>${time}</b> — ${d.clientName}${phone}${notes}`;
+  });
+
+  await sendMessage(
+    chatId,
+    `📋 <b>Записи на сьогодні (${format(now, "dd.MM.yyyy")}):</b>\n\n${lines.join("\n\n")}`
+  );
+}
+
+async function showOwnerCancelMenu(chatId: number) {
+  const now = new Date();
+  const snap = await adminDb
+    .collection("appointments")
+    .where("dateTime", ">=", now)
+    .where("status", "in", ["booked", "confirmed"])
+    .orderBy("dateTime", "asc")
+    .limit(10)
+    .get();
+
+  if (snap.empty) {
+    await sendMessage(chatId, "Немає майбутніх записів для скасування.");
+    return;
+  }
+
+  const buttons = snap.docs.map((doc) => {
+    const d = doc.data();
+    const dateStr = format(d.dateTime.toDate(), "dd.MM HH:mm");
+    return [{ text: `❌ ${dateStr} — ${d.clientName}`, callbackData: `owner_cancel:${doc.id}` }];
+  });
+
+  await sendMessage(chatId, "Оберіть запис для скасування (клієнт буде повідомлений):", {
+    replyMarkup: buildInlineKeyboard(buttons),
+  });
 }
