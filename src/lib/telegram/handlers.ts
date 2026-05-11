@@ -3,6 +3,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { sendMessage, sendDocument, answerCallbackQuery, buildInlineKeyboard, buildReplyKeyboard } from "./bot";
 import { confirmationMessage, confirmedMessage, cancelledMessage, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, consentMessage } from "./messages";
 import { confirmCalendarEvent, deleteCalendarEvent, createCalendarEvent } from "@/lib/calendar/google";
+import { notifyOwnerOfCancellation } from "./notifications";
 import { generateIcsFile, generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
 import { getAvailableSlots, getDaysWithAvailability } from "@/lib/slots";
 import { parse, format } from "date-fns";
@@ -111,6 +112,38 @@ async function handleCallbackQuery(query: {
     }
 
     await sendMessage(chatId, cancelledMessage(lang));
+    await notifyOwnerOfCancellation({
+      clientName: appointment.clientName,
+      dateTime: appointment.dateTime,
+    });
+  }
+
+  if (action === "cancel_apt") {
+    const aptDoc = await adminDb.collection("appointments").doc(appointmentId).get();
+    if (!aptDoc.exists) return;
+
+    const apt = aptDoc.data()!;
+    await adminDb.collection("appointments").doc(appointmentId).update({
+      status: "cancelled",
+      updatedAt: Timestamp.now(),
+    });
+
+    if (apt.googleCalendarEventId) {
+      try { await deleteCalendarEvent(apt.googleCalendarEventId); } catch {}
+    }
+
+    if (client) {
+      await adminDb.collection("clients").doc((client as { id: string }).id).update({
+        cancelledAppointments: (((client as Record<string, unknown>).cancelledAppointments as number) || 0) + 1,
+        updatedAt: Timestamp.now(),
+      });
+    }
+
+    await sendMessage(chatId, cancelledMessage(lang));
+    await notifyOwnerOfCancellation({
+      clientName: apt.clientName,
+      dateTime: apt.dateTime,
+    });
   }
 
   if (action === "date") {
@@ -197,15 +230,26 @@ async function handleMessage(message: {
     return;
   }
 
+  if (text === "/cancel") {
+    await showCancelMenu(chatId, lang);
+    return;
+  }
+
   // Handle booking flow state (phone via contact sharing)
   if (message.contact) {
     await handlePhoneShared(chatId, message.contact.phone_number, lang);
     return;
   }
 
-  // For other messages during booking flow, handle as name input
+  // Handle booking flow state
   const sessionSnap = await adminDb.collection("bookingSessions").doc(String(chatId)).get();
   if (sessionSnap.exists) {
+    if (text.startsWith("/")) {
+      await adminDb.collection("bookingSessions").doc(String(chatId)).delete();
+      await sendMessage(chatId, lang === "uk" ? "Бронювання скасовано." : "Booking cancelled.");
+      return;
+    }
+
     const session = sessionSnap.data()!;
     if (session.step === "awaiting_name") {
       await adminDb.collection("bookingSessions").doc(String(chatId)).update({
@@ -227,6 +271,33 @@ async function startBookingFlow(
   from?: { id: number; first_name?: string; last_name?: string },
   lang = "uk"
 ) {
+  const existingClient = await getClientByChat(chatId);
+
+  if (existingClient) {
+    const clientData = existingClient as { id: string; firstName?: string; phone?: string };
+    await adminDb.collection("bookingSessions").doc(String(chatId)).set({
+      step: "awaiting_date",
+      name: clientData.firstName || from?.first_name || "",
+      phone: clientData.phone || "",
+      chatId,
+      lang,
+      createdAt: Timestamp.now(),
+    });
+
+    const config = await getConfig();
+    if (!config) return;
+
+    const availableDates = getDaysWithAvailability(new Date(), 14, config);
+    const buttons = availableDates.slice(0, 7).map((d) => [
+      { text: d, callbackData: `date:${d}` },
+    ]);
+
+    await sendMessage(chatId, selectDateMessage(lang), {
+      replyMarkup: buildInlineKeyboard(buttons),
+    });
+    return;
+  }
+
   await adminDb.collection("bookingSessions").doc(String(chatId)).set({
     step: "awaiting_name",
     name: from?.first_name || "",
@@ -425,6 +496,41 @@ async function sendCalendarLinks(chatId: number, appointment: Record<string, unk
     Buffer.from(icsContent, "utf-8"),
     "appointment.ics",
     { caption: lang === "uk" ? "Файл для Apple/Outlook календаря" : "File for Apple/Outlook calendar" }
+  );
+}
+
+async function showCancelMenu(chatId: number, lang: string) {
+  const client = await getClientByChat(chatId);
+  if (!client) {
+    await sendMessage(chatId, lang === "uk" ? "У вас немає записів для скасування." : "You have no appointments to cancel.");
+    return;
+  }
+
+  const now = new Date();
+  const snap = await adminDb
+    .collection("appointments")
+    .where("clientId", "==", (client as { id: string }).id)
+    .where("dateTime", ">=", now)
+    .where("status", "in", ["booked", "confirmed"])
+    .orderBy("dateTime", "asc")
+    .limit(5)
+    .get();
+
+  if (snap.empty) {
+    await sendMessage(chatId, lang === "uk" ? "У вас немає майбутніх записів для скасування." : "You have no upcoming appointments to cancel.");
+    return;
+  }
+
+  const buttons = snap.docs.map((doc) => {
+    const d = doc.data();
+    const dateStr = format(d.dateTime.toDate(), "dd.MM.yyyy HH:mm");
+    return [{ text: `❌ ${dateStr}`, callbackData: `cancel_apt:${doc.id}` }];
+  });
+
+  await sendMessage(
+    chatId,
+    lang === "uk" ? "Оберіть запис для скасування:" : "Select appointment to cancel:",
+    { replyMarkup: buildInlineKeyboard(buttons) }
   );
 }
 

@@ -105,3 +105,28 @@ export function consentMessage(lang: string) {
   }
   return "📋 By pressing 'Confirm', you agree that your name, phone, and appointment data will be stored for managing visits and reminders.";
 }
+
+export function clientCancelledNotifyOwner(
+  data: { clientName: string; date: Date; serviceName: string }
+) {
+  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", { locale: uk });
+  return `⚠️ Клієнт <b>${data.clientName}</b> скасував запис\n📅 ${data.serviceName}\n📆 ${dateStr}`;
+}
+
+export function ownerCancelledNotifyClient(
+  lang: string,
+  data: { date: Date; serviceName: string }
+) {
+  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", {
+    locale: getLocale(lang),
+  });
+
+  if (lang === "uk") {
+    return "😔 На жаль, ваш запис було скасовано\n" +
+      `📅 ${data.serviceName}\n📆 ${dateStr}\n\n` +
+      "Вибачте за незручності. Будь ласка, запишіться на інший час:\n/book";
+  }
+  return "😔 Unfortunately, your appointment has been cancelled\n" +
+    `📅 ${data.serviceName}\n📆 ${dateStr}\n\n` +
+    "We apologize for the inconvenience. Please reschedule:\n/book";
+}

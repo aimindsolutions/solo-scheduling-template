@@ -4,6 +4,9 @@ import { sendMessage, buildInlineKeyboard } from "@/lib/telegram/bot";
 import { reminderMessage } from "@/lib/telegram/messages";
 import { generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
 import { Timestamp } from "firebase-admin/firestore";
+import { listCalendarEvents } from "@/lib/calendar/google";
+import { notifyClientOfCancellation } from "@/lib/telegram/notifications";
+import { startOfDay, endOfDay, addDays } from "date-fns";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -102,5 +105,39 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ sent24h, sent2h });
+  // Calendar deletion sync: detect events deleted from Google Calendar
+  let calendarCancelled = 0;
+  try {
+    const syncStart = startOfDay(now);
+    const syncEnd = endOfDay(addDays(now, 7));
+    const calendarEvents = await listCalendarEvents(syncStart, syncEnd);
+    const calendarEventIds = new Set(calendarEvents.map((e) => e.id).filter(Boolean));
+
+    const upcomingSnap = await adminDb.collection("appointments")
+      .where("dateTime", ">=", Timestamp.fromDate(syncStart))
+      .where("dateTime", "<=", Timestamp.fromDate(syncEnd))
+      .get();
+
+    for (const doc of upcomingSnap.docs) {
+      const data = doc.data();
+      if (
+        data.googleCalendarEventId &&
+        !calendarEventIds.has(data.googleCalendarEventId) &&
+        data.status !== "cancelled"
+      ) {
+        await adminDb.collection("appointments").doc(doc.id).update({
+          status: "cancelled",
+          updatedAt: Timestamp.now(),
+        });
+        if (data.clientId) {
+          try {
+            await notifyClientOfCancellation({ clientId: data.clientId, dateTime: data.dateTime });
+          } catch {}
+        }
+        calendarCancelled++;
+      }
+    }
+  } catch {}
+
+  return NextResponse.json({ sent24h, sent2h, calendarCancelled });
 }

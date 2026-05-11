@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { confirmCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from "@/lib/calendar/google";
 import { Timestamp } from "firebase-admin/firestore";
+import { notifyClientOfCancellation } from "@/lib/telegram/notifications";
 
 export async function GET(
   _request: NextRequest,
@@ -52,6 +53,15 @@ export async function PATCH(
     if (status === "cancelled" && appointment.googleCalendarEventId) {
       try {
         await deleteCalendarEvent(appointment.googleCalendarEventId);
+      } catch {}
+    }
+
+    if (status === "cancelled" && appointment.clientId) {
+      try {
+        await notifyClientOfCancellation({
+          clientId: appointment.clientId,
+          dateTime: appointment.dateTime,
+        });
       } catch {}
     }
 
@@ -115,6 +125,15 @@ export async function DELETE(
     status: "cancelled",
     updatedAt: Timestamp.now(),
   });
+
+  if (appointment.clientId) {
+    try {
+      await notifyClientOfCancellation({
+        clientId: appointment.clientId,
+        dateTime: appointment.dateTime,
+      });
+    } catch {}
+  }
 
   return NextResponse.json({ success: true });
 }

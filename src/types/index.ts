@@ -9,6 +9,7 @@ export interface BusinessConfig {
   };
   breakSlots: { start: string; end: string }[];
   ownerEmail: string;
+  ownerTelegramChatId?: string;
   googleCalendarId: string;
   timezone: string;
   languages: string[];

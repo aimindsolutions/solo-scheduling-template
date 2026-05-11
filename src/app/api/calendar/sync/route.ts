@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { listCalendarEvents } from "@/lib/calendar/google";
 import { Timestamp } from "firebase-admin/firestore";
 import { startOfDay, endOfDay, addDays } from "date-fns";
+import { notifyClientOfCancellation } from "@/lib/telegram/notifications";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -13,8 +14,13 @@ export async function POST(request: NextRequest) {
   const timeMax = endOfDay(addDays(now, daysAhead));
 
   const calendarEvents = await listCalendarEvents(timeMin, timeMax);
+  const calendarEventIds = new Set(calendarEvents.map((e) => e.id).filter(Boolean));
 
-  const appointmentsSnap = await adminDb.collection("appointments").get();
+  const appointmentsSnap = await adminDb.collection("appointments")
+    .where("dateTime", ">=", Timestamp.fromDate(timeMin))
+    .where("dateTime", "<=", Timestamp.fromDate(timeMax))
+    .get();
+
   const existingEventIds = new Set(
     appointmentsSnap.docs
       .map((doc) => doc.data().googleCalendarEventId)
@@ -22,6 +28,7 @@ export async function POST(request: NextRequest) {
   );
 
   let imported = 0;
+  let cancelled = 0;
 
   for (const event of calendarEvents) {
     if (!event.id || existingEventIds.has(event.id)) continue;
@@ -50,5 +57,27 @@ export async function POST(request: NextRequest) {
     imported++;
   }
 
-  return NextResponse.json({ imported, total: calendarEvents.length });
+  for (const doc of appointmentsSnap.docs) {
+    const data = doc.data();
+    if (
+      data.googleCalendarEventId &&
+      !calendarEventIds.has(data.googleCalendarEventId) &&
+      data.status !== "cancelled"
+    ) {
+      await adminDb.collection("appointments").doc(doc.id).update({
+        status: "cancelled",
+        updatedAt: Timestamp.now(),
+      });
+
+      if (data.clientId) {
+        try {
+          await notifyClientOfCancellation({ clientId: data.clientId, dateTime: data.dateTime });
+        } catch {}
+      }
+
+      cancelled++;
+    }
+  }
+
+  return NextResponse.json({ imported, cancelled, total: calendarEvents.length });
 }
