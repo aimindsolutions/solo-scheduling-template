@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { signInWithEmail, signInWithGoogle } from "@/lib/firebase/auth";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signInWithEmail, signInWithGoogle, signInWithCustomToken } from "@/lib/firebase/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,10 +11,34 @@ import { Separator } from "@/components/ui/separator";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [magicLoading, setMagicLoading] = useState(false);
+
+  useEffect(() => {
+    const token = searchParams.get("token");
+    if (!token) return;
+
+    setMagicLoading(true);
+    fetch(`/api/auth/magic-token?token=${token}`)
+      .then((res) => res.json())
+      .then(async (data) => {
+        if (data.customToken) {
+          await signInWithCustomToken(data.customToken);
+          router.push("/admin");
+        } else {
+          setError("Link expired or invalid");
+          setMagicLoading(false);
+        }
+      })
+      .catch(() => {
+        setError("Auto-login failed");
+        setMagicLoading(false);
+      });
+  }, [searchParams, router]);
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +67,14 @@ export default function AdminLoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (magicLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-pulse text-muted-foreground">Signing in...</div>
+      </div>
+    );
   }
 
   return (

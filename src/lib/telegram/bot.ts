@@ -100,6 +100,38 @@ export function buildInlineKeyboard(
   };
 }
 
+export async function setMyCommands(
+  commands: { command: string; description: string }[],
+  scope?: { type: string; chat_id?: number }
+) {
+  return callApi("setMyCommands", {
+    commands,
+    scope,
+    language_code: "uk",
+  });
+}
+
+export async function setupBotCommands(ownerChatId?: string) {
+  await setMyCommands([
+    { command: "book", description: "Записатися на прийом" },
+    { command: "my_appointments", description: "Мої записи" },
+    { command: "cancel", description: "Скасувати запис" },
+  ]);
+
+  if (ownerChatId) {
+    await setMyCommands(
+      [
+        { command: "today", description: "Записи на сьогодні" },
+        { command: "admin_cancel", description: "Скасувати запис клієнта" },
+        { command: "book", description: "Записатися на прийом" },
+        { command: "my_appointments", description: "Мої записи" },
+        { command: "cancel", description: "Скасувати запис" },
+      ],
+      { type: "chat", chat_id: Number(ownerChatId) }
+    );
+  }
+}
+
 export function buildReplyKeyboard(
   buttons: { text: string; requestContact?: boolean }[][],
   options?: { oneTimeKeyboard?: boolean; resizeKeyboard?: boolean }

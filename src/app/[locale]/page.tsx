@@ -15,7 +15,7 @@ export default function LandingPage() {
 
       <main className="flex-1 flex items-center justify-center px-4">
         <div className="text-center max-w-lg space-y-6">
-          <h2 className="text-4xl font-bold tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
             {t("landing.hero.title")}
           </h2>
           <p className="text-lg text-muted-foreground">

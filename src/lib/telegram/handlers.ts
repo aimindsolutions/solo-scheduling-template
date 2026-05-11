@@ -240,7 +240,37 @@ async function handleMessage(message: {
       }
     }
 
-    await sendMessage(chatId, welcomeMessage(lang));
+    const config = await getConfig();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const isOwner = config?.ownerTelegramChatId === String(chatId);
+
+    if (isOwner) {
+      let adminUrl = `${appUrl}/admin`;
+      try {
+        const tokenRes = await fetch(`${appUrl}/api/auth/magic-token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chatId: String(chatId) }),
+        });
+        const tokenData = await tokenRes.json();
+        if (tokenData.token) {
+          adminUrl = `${appUrl}/admin/login?token=${tokenData.token}`;
+        }
+      } catch {}
+
+      await sendMessage(chatId, "👋 Вітаємо! Ви увійшли як власник.\n\n/today — записи на сьогодні\n/admin_cancel — скасувати запис клієнта", {
+        replyMarkup: buildInlineKeyboard([
+          [{ text: "📋 Адмін-панель", url: adminUrl }],
+          [{ text: "🌐 Веб-сайт", url: appUrl }],
+        ]),
+      });
+    } else {
+      await sendMessage(chatId, welcomeMessage(lang), {
+        replyMarkup: appUrl ? buildInlineKeyboard([
+          [{ text: lang === "uk" ? "🌐 Записатися на сайті" : "🌐 Book on website", url: `${appUrl}/book` }],
+        ]) : undefined,
+      });
+    }
     return;
   }
 

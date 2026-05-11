@@ -304,7 +304,7 @@ export default function AdminCalendarPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Calendar</h1>
         <div className="flex items-center gap-2">
           <Button
@@ -331,7 +331,7 @@ export default function AdminCalendarPage() {
       {loading ? (
         <div className="text-muted-foreground">Loading...</div>
       ) : (
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
           {days.map((day) => {
             const dayAppointments = appointments
               .filter(

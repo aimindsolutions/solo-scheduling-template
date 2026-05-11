@@ -1,6 +1,7 @@
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithCustomToken as firebaseSignInWithCustomToken,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   onAuthStateChanged,
@@ -16,6 +17,10 @@ export async function signInWithEmail(email: string, password: string) {
 
 export async function signInWithGoogle() {
   return signInWithPopup(auth, googleProvider);
+}
+
+export async function signInWithCustomToken(token: string) {
+  return firebaseSignInWithCustomToken(auth, token);
 }
 
 export async function signOut() {

@@ -75,7 +75,8 @@ export default function AdminClientsPage() {
         />
       </div>
 
-      <Card>
+      {/* Desktop table */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-6 text-muted-foreground">Loading...</div>
@@ -117,6 +118,38 @@ export default function AdminClientsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="text-muted-foreground">Loading...</div>
+        ) : clients.length === 0 ? (
+          <p className="text-center text-muted-foreground">No clients found</p>
+        ) : (
+          clients.map((client) => (
+            <Link key={client.id} href={`/admin/clients/${client.id}`}>
+              <Card className="hover:bg-accent transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">
+                        {client.firstName} {client.lastName || ""}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{client.phone}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {client.totalAppointments || 0} visits
+                      </span>
+                      {getReliabilityBadge(client)}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))
+        )}
+      </div>
     </div>
   );
 }

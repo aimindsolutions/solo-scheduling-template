@@ -63,7 +63,7 @@ export function BookingTimeSlots({
         <CardTitle className="text-base">{t("selectTime")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {slots.map((slot) => (
             <Button
               key={slot}

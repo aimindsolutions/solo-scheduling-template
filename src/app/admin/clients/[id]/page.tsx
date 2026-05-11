@@ -114,7 +114,7 @@ export default function ClientDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">
           {client.firstName} {client.lastName || ""}
         </h1>

@@ -133,7 +133,7 @@ export default function AdminDashboardPage() {
               {todayAppointments.map((apt) => (
                 <div
                   key={apt.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg"
                 >
                   <div>
                     <p className="font-medium">{apt.clientName}</p>
@@ -186,7 +186,7 @@ export default function AdminDashboardPage() {
               {upcomingAppointments.slice(0, 10).map((apt) => (
                 <div
                   key={apt.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg"
                 >
                   <div>
                     <p className="font-medium">{apt.clientName}</p>
