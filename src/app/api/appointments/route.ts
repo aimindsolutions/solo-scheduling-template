@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { createCalendarEvent } from "@/lib/calendar/google";
 import { bookingFormSchema } from "@/lib/validators";
-import { parse } from "date-fns";
 import { Timestamp } from "firebase-admin/firestore";
+import { parseInTimeZone } from "@/lib/date-utils";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const durationMinutes = config.defaultDurationMinutes || 30;
   const serviceName = config.serviceName || "Appointment";
 
-  const dateTime = parse(`${date} ${time}`, "yyyy-MM-dd HH:mm", new Date());
+  const dateTime = parseInTimeZone(`${date} ${time}`, config.timezone || "Europe/Kyiv");
 
   let clientId: string;
   const clientQuery = await adminDb

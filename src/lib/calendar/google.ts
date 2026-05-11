@@ -22,19 +22,21 @@ export async function createCalendarEvent(params: {
   startTime: Date;
   durationMinutes: number;
   description?: string;
+  timeZone?: string;
 }) {
   const calendar = getCalendarClient();
   const endTime = new Date(
     params.startTime.getTime() + params.durationMinutes * 60 * 1000
   );
+  const tz = params.timeZone || "Europe/Kyiv";
 
   const event = await calendar.events.insert({
     calendarId: CALENDAR_ID,
     requestBody: {
       summary: params.summary,
       description: params.description,
-      start: { dateTime: params.startTime.toISOString() },
-      end: { dateTime: endTime.toISOString() },
+      start: { dateTime: params.startTime.toISOString(), timeZone: tz },
+      end: { dateTime: endTime.toISOString(), timeZone: tz },
       colorId: COLOR_BOOKED,
     },
   });

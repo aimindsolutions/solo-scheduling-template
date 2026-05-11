@@ -6,6 +6,7 @@ import { confirmCalendarEvent, deleteCalendarEvent, createCalendarEvent } from "
 import { generateIcsFile, generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
 import { getAvailableSlots, getDaysWithAvailability } from "@/lib/slots";
 import { parse, format } from "date-fns";
+import { parseInTimeZone } from "@/lib/date-utils";
 import type { BusinessConfig, Appointment } from "@/types";
 
 interface TelegramUpdate {
@@ -319,7 +320,7 @@ async function handleTimeSelection(chatId: number, dateStr: string, timeStr: str
   const config = await getConfig();
   if (!config) return;
 
-  const dateTime = parse(`${dateStr} ${timeStr}`, "yyyy-MM-dd HH:mm", new Date());
+  const dateTime = parseInTimeZone(`${dateStr} ${timeStr}`, config.timezone || "Europe/Kyiv");
   const durationMinutes = config.defaultDurationMinutes || 30;
   const serviceName = config.serviceName || "Appointment";
 
