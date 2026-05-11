@@ -1,0 +1,57 @@
+{
+  "common": {
+    "appName": "Book Online",
+    "book": "Book",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "back": "Back",
+    "next": "Next",
+    "close": "Close",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "landing": {
+    "hero": {
+      "title": "Book Your Appointment Online",
+      "subtitle": "Choose a convenient time and book in a few clicks",
+      "cta": "Book Now"
+    }
+  },
+  "booking": {
+    "title": "Book an Appointment",
+    "selectDate": "Select a date",
+    "selectTime": "Select a time",
+    "noSlots": "No available slots for this date",
+    "form": {
+      "firstName": "First Name",
+      "firstNamePlaceholder": "Enter your first name",
+      "lastName": "Last Name",
+      "lastNamePlaceholder": "Enter your last name",
+      "phone": "Phone",
+      "phonePlaceholder": "+380XXXXXXXXX",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com",
+      "notes": "Notes",
+      "notesPlaceholder": "Additional information (optional)"
+    },
+    "consent": "I agree that my name, phone number, email and appointment details will be stored and used only for managing my visits and sending reminders, according to the Privacy Policy.",
+    "consentRequired": "Consent is required",
+    "submit": "Confirm Booking",
+    "success": {
+      "title": "Appointment Booked!",
+      "message": "Your appointment on {date} at {time} has been created.",
+      "telegramPrompt": "Confirm your booking via Telegram to receive reminders:",
+      "openTelegram": "Open Telegram Bot",
+      "addToCalendar": "Add to Calendar",
+      "googleCalendar": "Google Calendar",
+      "downloadIcs": "Download .ics file"
+    }
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalidPhone": "Invalid phone number",
+    "invalidEmail": "Invalid email address"
+  }
+}

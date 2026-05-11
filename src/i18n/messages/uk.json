@@ -1,0 +1,57 @@
+{
+  "common": {
+    "appName": "Запис онлайн",
+    "book": "Записатися",
+    "confirm": "Підтвердити",
+    "cancel": "Скасувати",
+    "save": "Зберегти",
+    "back": "Назад",
+    "next": "Далі",
+    "close": "Закрити",
+    "loading": "Завантаження...",
+    "error": "Помилка",
+    "success": "Успішно"
+  },
+  "landing": {
+    "hero": {
+      "title": "Запишіться на прийом онлайн",
+      "subtitle": "Оберіть зручний час та запишіться за кілька кліків",
+      "cta": "Записатися"
+    }
+  },
+  "booking": {
+    "title": "Запис на прийом",
+    "selectDate": "Оберіть дату",
+    "selectTime": "Оберіть час",
+    "noSlots": "Немає вільних слотів на цю дату",
+    "form": {
+      "firstName": "Ім'я",
+      "firstNamePlaceholder": "Введіть ваше ім'я",
+      "lastName": "Прізвище",
+      "lastNamePlaceholder": "Введіть ваше прізвище",
+      "phone": "Телефон",
+      "phonePlaceholder": "+380XXXXXXXXX",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com",
+      "notes": "Коментар",
+      "notesPlaceholder": "Додаткова інформація (необов'язково)"
+    },
+    "consent": "Я погоджуюсь, що моє ім'я, телефон, email та дані про запис будуть збережені та використані виключно для управління моїми візитами та надсилання нагадувань, відповідно до Політики конфіденційності.",
+    "consentRequired": "Необхідно надати згоду",
+    "submit": "Підтвердити запис",
+    "success": {
+      "title": "Запис створено!",
+      "message": "Ваш запис на {date} о {time} створено.",
+      "telegramPrompt": "Підтвердіть запис через Telegram для отримання нагадувань:",
+      "openTelegram": "Відкрити Telegram бот",
+      "addToCalendar": "Додати в календар",
+      "googleCalendar": "Google Calendar",
+      "downloadIcs": "Завантажити .ics файл"
+    }
+  },
+  "validation": {
+    "required": "Обов'язкове поле",
+    "invalidPhone": "Невірний формат телефону",
+    "invalidEmail": "Невірний формат email"
+  }
+}
