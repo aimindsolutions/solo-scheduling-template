@@ -117,7 +117,9 @@ async function handleCallbackQuery(query: {
   }
 
   if (action === "time") {
-    const [, dateStr, timeStr] = query.data.split(":");
+    const rest = query.data.slice("time:".length);
+    const dateStr = rest.slice(0, 10);
+    const timeStr = rest.slice(11);
     await handleTimeSelection(chatId, dateStr, timeStr, lang);
   }
 }
