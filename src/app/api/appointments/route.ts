@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { createCalendarEvent } from "@/lib/calendar/google";
 import { bookingFormSchema } from "@/lib/validators";
-import { Timestamp } from "firebase-admin/firestore";
-import { parseInTimeZone } from "@/lib/date-utils";
-import { getAvailableSlots } from "@/lib/slots";
-import { parse, startOfDay, endOfDay } from "date-fns";
+import { Timestamp, FieldValue } from "firebase-admin/firestore";
+import { parseInTimeZone, startOfDayInTimeZone, endOfDayInTimeZone } from "@/lib/date-utils";
+import { getAvailableSlots, getNowLocalForSlots } from "@/lib/slots";
+import { parse } from "date-fns";
 import type { BusinessConfig, Appointment } from "@/types";
+import { verifyAdminAuth } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -34,32 +35,12 @@ export async function POST(request: NextRequest) {
   const durationMinutes = config.defaultDurationMinutes || 30;
   const serviceName = config.serviceName || "Appointment";
 
-  const dateTime = parseInTimeZone(`${date} ${time}`, config.timezone || "Europe/Kyiv");
+  const tz = config.timezone || "Europe/Kyiv";
+  const dateTime = parseInTimeZone(`${date} ${time}`, tz);
 
   const bookingDate = parse(date, "yyyy-MM-dd", new Date());
-  const dayStart = startOfDay(bookingDate);
-  const dayEnd = endOfDay(bookingDate);
-
-  const existingSnap = await adminDb
-    .collection("appointments")
-    .where("dateTime", ">=", dayStart)
-    .where("dateTime", "<=", dayEnd)
-    .get();
-
-  const existingAppointments = existingSnap.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    dateTime: doc.data().dateTime.toDate(),
-  })) as Appointment[];
-
-  const availableSlots = getAvailableSlots(bookingDate, config as BusinessConfig, existingAppointments, new Date());
-
-  if (!availableSlots.includes(time)) {
-    return NextResponse.json(
-      { error: "Selected time slot is not available" },
-      { status: 409 }
-    );
-  }
+  const dayStart = startOfDayInTimeZone(date, tz);
+  const dayEnd = endOfDayInTimeZone(date, tz);
 
   let clientId: string;
   const clientQuery = await adminDb
@@ -109,29 +90,59 @@ export async function POST(request: NextRequest) {
     // Calendar sync is optional — don't block booking
   }
 
-  const appointmentRef = await adminDb.collection("appointments").add({
-    clientId,
-    clientName: `${firstName}${lastName ? " " + lastName : ""}`,
-    clientPhone: phone,
-    dateTime: Timestamp.fromDate(dateTime),
-    durationMinutes,
-    status: "booked",
-    source: "web",
-    googleCalendarEventId: googleCalendarEventId || null,
-    reminder24hSent: false,
-    reminder2hSent: false,
-    notes: notes || null,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
+  const appointmentRef = adminDb.collection("appointments").doc();
 
-  await adminDb
-    .collection("clients")
-    .doc(clientId)
-    .update({
-      totalAppointments: (clientQuery.empty ? 0 : clientQuery.docs[0].data().totalAppointments || 0) + 1,
+  const slotTaken = await adminDb.runTransaction(async (tx) => {
+    const existingSnap = await tx.get(
+      adminDb
+        .collection("appointments")
+        .where("dateTime", ">=", dayStart)
+        .where("dateTime", "<=", dayEnd)
+    );
+
+    const existingAppointments = existingSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      dateTime: doc.data().dateTime.toDate(),
+    })) as Appointment[];
+
+    const nowLocal = getNowLocalForSlots(bookingDate, tz);
+    const availableSlots = getAvailableSlots(bookingDate, config as BusinessConfig, existingAppointments, nowLocal);
+
+    if (!availableSlots.includes(time)) {
+      return true;
+    }
+
+    tx.set(appointmentRef, {
+      clientId,
+      clientName: `${firstName}${lastName ? " " + lastName : ""}`,
+      clientPhone: phone,
+      dateTime: Timestamp.fromDate(dateTime),
+      durationMinutes,
+      status: "booked",
+      source: "web",
+      googleCalendarEventId: googleCalendarEventId || null,
+      reminder24hSent: false,
+      reminder2hSent: false,
+      notes: notes || null,
+      createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
+
+    tx.update(adminDb.collection("clients").doc(clientId), {
+      totalAppointments: FieldValue.increment(1),
+      updatedAt: Timestamp.now(),
+    });
+
+    return false;
+  });
+
+  if (slotTaken) {
+    return NextResponse.json(
+      { error: "Selected time slot is not available" },
+      { status: 409 }
+    );
+  }
 
   try {
     const { notifyOwnerOfNewBooking } = await import("@/lib/telegram/notifications");
@@ -149,7 +160,13 @@ export async function POST(request: NextRequest) {
   });
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
+  const configSnap = await adminDb.collection("businessConfig").doc("main").get();
+  const tz = configSnap.exists ? configSnap.data()!.timezone || "Europe/Kyiv" : "Europe/Kyiv";
+
   const snapshot = await adminDb
     .collection("appointments")
     .orderBy("dateTime", "asc")
@@ -164,5 +181,5 @@ export async function GET() {
     updatedAt: doc.data().updatedAt?.toDate().toISOString(),
   }));
 
-  return NextResponse.json({ appointments });
+  return NextResponse.json({ appointments, timezone: tz });
 }

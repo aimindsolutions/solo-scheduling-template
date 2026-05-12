@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { confirmCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from "@/lib/calendar/google";
-import { Timestamp } from "firebase-admin/firestore";
+import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { notifyClientOfCancellation, notifyClientOfConfirmation } from "@/lib/telegram/notifications";
 import { verifyAdminAuth } from "@/lib/api-auth";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const { id } = await params;
   const doc = await adminDb.collection("appointments").doc(id).get();
 
@@ -78,23 +81,19 @@ export async function PATCH(
       } catch {}
     }
 
-    if (["confirmed", "cancelled", "completed", "no_show"].includes(status)) {
-      const clientDoc = await adminDb.collection("clients").doc(appointment.clientId).get();
-      if (clientDoc.exists) {
-        const clientData = clientDoc.data()!;
-        const counterMap: Record<string, string> = {
-          confirmed: "confirmedAppointments",
-          cancelled: "cancelledAppointments",
-          completed: "completedAppointments",
-          no_show: "noShowAppointments",
-        };
-        const field = counterMap[status];
-        if (field) {
-          await adminDb.collection("clients").doc(appointment.clientId).update({
-            [field]: (clientData[field] || 0) + 1,
-            updatedAt: Timestamp.now(),
-          });
-        }
+    if (["confirmed", "cancelled", "completed", "no_show"].includes(status) && appointment.clientId) {
+      const counterMap: Record<string, string> = {
+        confirmed: "confirmedAppointments",
+        cancelled: "cancelledAppointments",
+        completed: "completedAppointments",
+        no_show: "noShowAppointments",
+      };
+      const field = counterMap[status];
+      if (field) {
+        await adminDb.collection("clients").doc(appointment.clientId).update({
+          [field]: FieldValue.increment(1),
+          updatedAt: Timestamp.now(),
+        });
       }
     }
   }
@@ -152,13 +151,10 @@ export async function DELETE(
 
   if (appointment.clientId) {
     try {
-      const clientDoc = await adminDb.collection("clients").doc(appointment.clientId).get();
-      if (clientDoc.exists) {
-        await adminDb.collection("clients").doc(appointment.clientId).update({
-          cancelledAppointments: (clientDoc.data()!.cancelledAppointments || 0) + 1,
-          updatedAt: Timestamp.now(),
-        });
-      }
+      await adminDb.collection("clients").doc(appointment.clientId).update({
+        cancelledAppointments: FieldValue.increment(1),
+        updatedAt: Timestamp.now(),
+      });
     } catch {}
   }
 

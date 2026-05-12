@@ -41,7 +41,7 @@ Never import admin SDK in client components or vice versa.
 
 RESTful pattern under `src/app/api/`. Each route uses `adminDb` for Firestore access and returns `NextResponse.json()`. Timestamps are converted from Firestore `Timestamp` to ISO strings in all GET responses.
 
-Auth is per-route: Telegram webhook checks `x-telegram-bot-api-secret-token` header, cron and telegram setup check `Authorization: Bearer {CRON_SECRET}`, admin API routes currently have no auth middleware (known gap).
+Auth is per-route: Telegram webhook checks `x-telegram-bot-api-secret-token` header, cron and telegram setup check `Authorization: Bearer {CRON_SECRET}`, admin API routes require Firebase ID token via `verifyAdminAuth`.
 
 ### Magic login
 
@@ -92,7 +92,6 @@ Appointment statuses: `booked` → `confirmed` → `completed` | `cancelled` | `
 
 ### Known issues
 
-- Client counters (`cancelledAppointments`, `noShowAppointments`) not updated in all paths: owner_cancel callback, admin DELETE, admin PATCH for completed/no_show.
 - Dark mode CSS is configured but no UI toggle exists.
 - Success page uses wrong translation key `t("title")`.
 

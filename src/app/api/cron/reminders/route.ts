@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
   const configSnap = await adminDb.collection("businessConfig").doc("main").get();
   const config = configSnap.exists ? configSnap.data()! : {};
   const serviceName = config.serviceName || "Appointment";
+  const tz = config.timezone || "Europe/Kyiv";
 
   let sent24h = 0;
   let sent2h = 0;
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
       try {
         await sendMessage(
           clientData.telegramChatId,
-          reminderMessage(lang, { date: appointmentDate, serviceName, hoursLeft: 24 }),
+          reminderMessage(lang, { date: appointmentDate, serviceName, hoursLeft: 24, timezone: tz }),
           {
             replyMarkup: buildInlineKeyboard([
               [{ text: "📅 Google Calendar", url: googleUrl }],
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
       try {
         await sendMessage(
           clientData.telegramChatId,
-          reminderMessage(lang, { date: appointmentDate, serviceName, hoursLeft: 2 }),
+          reminderMessage(lang, { date: appointmentDate, serviceName, hoursLeft: 2, timezone: tz }),
           {
             replyMarkup: buildInlineKeyboard([
               [{ text: "❌ " + (lang === "uk" ? "Скасувати" : "Cancel"), callbackData: `cancel:${doc.id}` }],

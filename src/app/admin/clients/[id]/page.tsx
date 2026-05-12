@@ -14,9 +14,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { format } from "date-fns";
 import { Pencil, Trash2, Save, X } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
+import { formatInTimeZone } from "@/lib/date-utils";
 
 interface ClientDetail {
   id: string;
@@ -56,6 +56,7 @@ export default function ClientDetailPage() {
   const clientId = params.id as string;
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
+  const [timezone, setTimezone] = useState("Europe/Kyiv");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -84,6 +85,7 @@ export default function ClientDetailPage() {
         email: c.email || "",
       });
       setAppointments(aptsData.appointments || []);
+      if (aptsData.timezone) setTimezone(aptsData.timezone);
     } catch {} finally {
       setLoading(false);
     }
@@ -223,7 +225,7 @@ export default function ClientDetailPage() {
                 <div>
                   <span className="text-muted-foreground">Client since: </span>
                   {client.createdAt
-                    ? format(new Date(client.createdAt), "dd.MM.yyyy")
+                    ? formatInTimeZone(client.createdAt, timezone, "dd.MM.yyyy")
                     : "—"}
                 </div>
               </div>
@@ -280,7 +282,7 @@ export default function ClientDetailPage() {
                 >
                   <div>
                     <p className="text-sm font-medium">
-                      {format(new Date(apt.dateTime), "dd.MM.yyyy HH:mm")}
+                      {formatInTimeZone(apt.dateTime, timezone, "dd.MM.yyyy HH:mm")}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {apt.durationMinutes} min — via {apt.source}

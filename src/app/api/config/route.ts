@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { verifyAdminAuth } from "@/lib/api-auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const doc = await adminDb.collection("businessConfig").doc("main").get();
 
   if (!doc.exists) {
@@ -24,6 +27,7 @@ export async function PUT(request: NextRequest) {
     timezone,
     workingHours,
     breakSlots,
+    vacationDays,
     ownerEmail,
     jurisdiction,
     languages,
@@ -36,6 +40,7 @@ export async function PUT(request: NextRequest) {
   if (timezone !== undefined) updates.timezone = timezone;
   if (workingHours !== undefined) updates.workingHours = workingHours;
   if (breakSlots !== undefined) updates.breakSlots = breakSlots;
+  if (vacationDays !== undefined) updates.vacationDays = vacationDays;
   if (ownerEmail !== undefined) updates.ownerEmail = ownerEmail;
   if (jurisdiction !== undefined) updates.jurisdiction = jurisdiction;
   if (languages !== undefined) updates.languages = languages;
@@ -53,6 +58,7 @@ export async function PUT(request: NextRequest) {
       timezone: timezone || "Europe/Kyiv",
       workingHours: workingHours || {},
       breakSlots: breakSlots || [],
+      vacationDays: vacationDays || [],
       ownerEmail: ownerEmail || "",
       jurisdiction: jurisdiction || "UA",
       languages: languages || ["uk", "en"],

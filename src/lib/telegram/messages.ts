@@ -1,5 +1,5 @@
-import { format } from "date-fns";
 import { uk, enUS } from "date-fns/locale";
+import { formatInTimeZone } from "@/lib/date-utils";
 
 const localeMap = { uk, en: enUS } as const;
 
@@ -7,13 +7,27 @@ function getLocale(lang: string) {
   return localeMap[lang as keyof typeof localeMap] || uk;
 }
 
+function fmtDate(date: Date, tz: string, lang: string): string {
+  const dateStr = formatInTimeZone(date, tz, "dd.MM.yyyy HH:mm");
+  const locale = getLocale(lang);
+  const monthDay = new Intl.DateTimeFormat(locale.code || "uk", {
+    timeZone: tz,
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  return monthDay;
+}
+
 export function confirmationMessage(
   lang: string,
-  data: { date: Date; serviceName: string }
+  data: { date: Date; serviceName: string; timezone?: string }
 ) {
-  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", {
-    locale: getLocale(lang),
-  });
+  const tz = data.timezone || "Europe/Kyiv";
+  const dateStr = fmtDate(data.date, tz, lang);
 
   if (lang === "uk") {
     return `📅 Ви записалися на <b>${data.serviceName}</b>\n📆 ${dateStr}\n\nПідтвердіть або скасуйте запис:`;
@@ -33,11 +47,10 @@ export function cancelledMessage(lang: string) {
 
 export function reminderMessage(
   lang: string,
-  data: { date: Date; serviceName: string; hoursLeft: number }
+  data: { date: Date; serviceName: string; hoursLeft: number; timezone?: string }
 ) {
-  const dateStr = format(data.date, "d MMMM, HH:mm", {
-    locale: getLocale(lang),
-  });
+  const tz = data.timezone || "Europe/Kyiv";
+  const dateStr = fmtDate(data.date, tz, lang);
 
   if (lang === "uk") {
     const timeLabel = data.hoursLeft === 24 ? "завтра" : "через 2 години";
@@ -82,11 +95,10 @@ export function selectTimeMessage(lang: string) {
 
 export function bookingConfirmedMessage(
   lang: string,
-  data: { date: Date; serviceName: string }
+  data: { date: Date; serviceName: string; timezone?: string }
 ) {
-  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", {
-    locale: getLocale(lang),
-  });
+  const tz = data.timezone || "Europe/Kyiv";
+  const dateStr = fmtDate(data.date, tz, lang);
 
   if (lang === "uk") {
     return `✅ Запис створено!\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\nДодайте запис у свій календар:`;
@@ -96,11 +108,10 @@ export function bookingConfirmedMessage(
 
 export function confirmBookingPrompt(
   lang: string,
-  data: { date: Date; serviceName: string }
+  data: { date: Date; serviceName: string; timezone?: string }
 ) {
-  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", {
-    locale: getLocale(lang),
-  });
+  const tz = data.timezone || "Europe/Kyiv";
+  const dateStr = fmtDate(data.date, tz, lang);
 
   if (lang === "uk") {
     return `📋 <b>Підтвердження запису:</b>\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\n💬 Можете додати коментар (просто напишіть текст) або натисніть кнопку для підтвердження:`;
@@ -121,19 +132,19 @@ export function consentMessage(lang: string) {
 }
 
 export function clientCancelledNotifyOwner(
-  data: { clientName: string; date: Date; serviceName: string }
+  data: { clientName: string; date: Date; serviceName: string; timezone?: string }
 ) {
-  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", { locale: uk });
+  const tz = data.timezone || "Europe/Kyiv";
+  const dateStr = fmtDate(data.date, tz, "uk");
   return `⚠️ Клієнт <b>${data.clientName}</b> скасував запис\n📅 ${data.serviceName}\n📆 ${dateStr}`;
 }
 
 export function ownerCancelledNotifyClient(
   lang: string,
-  data: { date: Date; serviceName: string }
+  data: { date: Date; serviceName: string; timezone?: string }
 ) {
-  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", {
-    locale: getLocale(lang),
-  });
+  const tz = data.timezone || "Europe/Kyiv";
+  const dateStr = fmtDate(data.date, tz, lang);
 
   if (lang === "uk") {
     return "😔 На жаль, ваш запис було скасовано\n" +
@@ -146,19 +157,19 @@ export function ownerCancelledNotifyClient(
 }
 
 export function clientConfirmedNotifyOwner(
-  data: { clientName: string; date: Date; serviceName: string }
+  data: { clientName: string; date: Date; serviceName: string; timezone?: string }
 ) {
-  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", { locale: uk });
+  const tz = data.timezone || "Europe/Kyiv";
+  const dateStr = fmtDate(data.date, tz, "uk");
   return `✅ Клієнт <b>${data.clientName}</b> підтвердив запис\n📅 ${data.serviceName}\n📆 ${dateStr}`;
 }
 
 export function ownerConfirmedNotifyClient(
   lang: string,
-  data: { date: Date; serviceName: string }
+  data: { date: Date; serviceName: string; timezone?: string }
 ) {
-  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", {
-    locale: getLocale(lang),
-  });
+  const tz = data.timezone || "Europe/Kyiv";
+  const dateStr = fmtDate(data.date, tz, lang);
 
   if (lang === "uk") {
     return `✅ Ваш запис підтверджено!\n📅 ${data.serviceName}\n📆 ${dateStr}\n\nЧекаємо на вас!`;

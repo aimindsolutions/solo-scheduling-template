@@ -11,9 +11,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { format } from "date-fns";
 import { CheckCircle } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
+import { formatInTimeZone } from "@/lib/date-utils";
 
 interface AppointmentData {
   id: string;
@@ -36,6 +36,7 @@ const statusColor: Record<string, string> = {
 
 export default function AdminDashboardPage() {
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
+  const [timezone, setTimezone] = useState("Europe/Kyiv");
   const [loading, setLoading] = useState(true);
   const [selectedApt, setSelectedApt] = useState<AppointmentData | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
@@ -48,6 +49,7 @@ export default function AdminDashboardPage() {
       const res = await adminFetch("/api/appointments");
       const data = await res.json();
       setAppointments(data.appointments || []);
+      if (data.timezone) setTimezone(data.timezone);
     } catch {
       setAppointments([]);
     } finally {
@@ -59,12 +61,26 @@ export default function AdminDashboardPage() {
     fetchAppointments();
   }, [fetchAppointments]);
 
-  const today = format(new Date(), "yyyy-MM-dd");
+  function fmtTime(iso: string) {
+    return formatInTimeZone(iso, timezone, "HH:mm");
+  }
+  function fmtDateTime(iso: string) {
+    return formatInTimeZone(iso, timezone, "dd.MM.yyyy HH:mm");
+  }
+  function fmtShort(iso: string) {
+    return formatInTimeZone(iso, timezone, "dd.MM HH:mm");
+  }
+
+  const todayStr = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
   const todayAppointments = appointments.filter(
-    (a) => a.dateTime.startsWith(today) && a.status !== "cancelled"
+    (a) => formatInTimeZone(a.dateTime, timezone, "yyyy-MM-dd") === todayStr && a.status !== "cancelled"
   );
+  const todayCancelled = appointments.filter(
+    (a) => formatInTimeZone(a.dateTime, timezone, "yyyy-MM-dd") === todayStr && a.status === "cancelled"
+  );
+  const nowIso = new Date().toISOString();
   const upcomingAppointments = appointments.filter(
-    (a) => a.dateTime > new Date().toISOString() && a.status !== "cancelled"
+    (a) => a.dateTime > nowIso && a.status !== "cancelled"
   );
   const confirmedToday = todayAppointments.filter(
     (a) => a.status === "confirmed"
@@ -126,7 +142,7 @@ export default function AdminDashboardPage() {
           <CardTitle>Today&apos;s Appointments</CardTitle>
         </CardHeader>
         <CardContent>
-          {todayAppointments.length === 0 ? (
+          {todayAppointments.length === 0 && todayCancelled.length === 0 ? (
             <p className="text-muted-foreground">No appointments today</p>
           ) : (
             <div className="space-y-3">
@@ -139,7 +155,7 @@ export default function AdminDashboardPage() {
                   <div>
                     <p className="font-medium">{apt.clientName}</p>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(apt.dateTime), "HH:mm")} — {apt.clientPhone}
+                      {fmtTime(apt.dateTime)} — {apt.clientPhone}
                     </p>
                     {apt.notes && (
                       <p className="text-xs text-muted-foreground mt-1">💬 {apt.notes}</p>
@@ -158,6 +174,24 @@ export default function AdminDashboardPage() {
                     )}
                     <Badge className={statusColor[apt.status] || ""}>{apt.status}</Badge>
                   </div>
+                </div>
+              ))}
+              {todayCancelled.map((apt) => (
+                <div
+                  key={apt.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border border-red-200 dark:border-red-900/50 rounded-lg opacity-60 cursor-pointer"
+                  onClick={() => setSelectedApt(apt)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+                    <div>
+                      <p className="font-medium line-through">{apt.clientName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {fmtTime(apt.dateTime)} — {apt.clientPhone}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className={statusColor.cancelled}>cancelled</Badge>
                 </div>
               ))}
             </div>
@@ -183,7 +217,7 @@ export default function AdminDashboardPage() {
                   <div>
                     <p className="font-medium">{apt.clientName}</p>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(apt.dateTime), "dd.MM.yyyy HH:mm")} — {apt.clientPhone}
+                      {fmtDateTime(apt.dateTime)} — {apt.clientPhone}
                     </p>
                     {apt.notes && (
                       <p className="text-xs text-muted-foreground mt-1">💬 {apt.notes}</p>
@@ -212,7 +246,7 @@ export default function AdminDashboardPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Date & Time</span>
-                <span>{format(new Date(selectedApt.dateTime), "dd.MM.yyyy HH:mm")}</span>
+                <span>{fmtDateTime(selectedApt.dateTime)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Duration</span>
@@ -282,7 +316,7 @@ export default function AdminDashboardPage() {
                   : "Mark as no-show?"}
             </p>
             <p className="text-sm text-muted-foreground">
-              {confirmAction.apt.clientName} — {format(new Date(confirmAction.apt.dateTime), "dd.MM HH:mm")}
+              {confirmAction.apt.clientName} — {fmtShort(confirmAction.apt.dateTime)}
             </p>
             <DialogFooter>
               <Button variant="outline" onClick={() => setConfirmAction(null)}>

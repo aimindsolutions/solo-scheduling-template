@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { adminFetch } from "@/lib/api-client";
+import { TIMEZONES } from "@/lib/date-utils";
+import { Trash2, Plus } from "lucide-react";
 
 const DAYS = [
   "monday",
@@ -22,12 +24,26 @@ interface WorkingHours {
   [day: string]: { start: string; end: string } | null;
 }
 
+interface BreakSlot {
+  start: string;
+  end: string;
+}
+
+interface VacationDay {
+  id: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
 export default function AdminSettingsPage() {
   const [businessName, setBusinessName] = useState("");
   const [serviceName, setServiceName] = useState("");
   const [duration, setDuration] = useState("30");
   const [timezone, setTimezone] = useState("Europe/Kyiv");
   const [workingHours, setWorkingHours] = useState<WorkingHours>({});
+  const [breakSlots, setBreakSlots] = useState<BreakSlot[]>([]);
+  const [vacationDays, setVacationDays] = useState<VacationDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -43,6 +59,8 @@ export default function AdminSettingsPage() {
           setDuration(String(data.config.defaultDurationMinutes || 30));
           setTimezone(data.config.timezone || "Europe/Kyiv");
           setWorkingHours(data.config.workingHours || {});
+          setBreakSlots(data.config.breakSlots || []);
+          setVacationDays(data.config.vacationDays || []);
         }
       } catch {
         // default values
@@ -67,6 +85,38 @@ export default function AdminSettingsPage() {
     }));
   }
 
+  function addBreakSlot() {
+    setBreakSlots((prev) => [...prev, { start: "13:00", end: "14:00" }]);
+  }
+
+  function updateBreakSlot(index: number, field: "start" | "end", value: string) {
+    setBreakSlots((prev) =>
+      prev.map((slot, i) => (i === index ? { ...slot, [field]: value } : slot))
+    );
+  }
+
+  function removeBreakSlot(index: number) {
+    setBreakSlots((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addVacation() {
+    const today = new Date().toISOString().slice(0, 10);
+    setVacationDays((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), startDate: today, endDate: today, reason: "" },
+    ]);
+  }
+
+  function updateVacation(id: string, field: keyof VacationDay, value: string) {
+    setVacationDays((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, [field]: value } : v))
+    );
+  }
+
+  function removeVacation(id: string) {
+    setVacationDays((prev) => prev.filter((v) => v.id !== id));
+  }
+
   async function handleSave() {
     setSaving(true);
     setMessage("");
@@ -80,6 +130,8 @@ export default function AdminSettingsPage() {
           defaultDurationMinutes: parseInt(duration),
           timezone,
           workingHours,
+          breakSlots,
+          vacationDays,
         }),
       });
       if (res.ok) {
@@ -139,11 +191,18 @@ export default function AdminSettingsPage() {
           </div>
           <div className="space-y-2">
             <Label>Timezone</Label>
-            <Input
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              placeholder="Europe/Kyiv"
-            />
+            <Select value={timezone} onValueChange={(v) => v && setTimezone(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select timezone" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {TIMEZONES.map((tz) => (
+                  <SelectItem key={tz} value={tz}>
+                    {tz.replace(/_/g, " ")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -188,6 +247,96 @@ export default function AdminSettingsPage() {
               </div>
             );
           })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Break Times</CardTitle>
+          <Button variant="outline" size="sm" onClick={addBreakSlot}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add Break
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {breakSlots.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No breaks configured</p>
+          ) : (
+            breakSlots.map((slot, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <Input
+                  type="time"
+                  value={slot.start}
+                  onChange={(e) => updateBreakSlot(index, "start", e.target.value)}
+                  className="w-28"
+                />
+                <span className="text-muted-foreground">—</span>
+                <Input
+                  type="time"
+                  value={slot.end}
+                  onChange={(e) => updateBreakSlot(index, "end", e.target.value)}
+                  className="w-28"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={() => removeBreakSlot(index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Vacation Days</CardTitle>
+          <Button variant="outline" size="sm" onClick={addVacation}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add Vacation
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {vacationDays.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No vacation days configured</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_40px] gap-3 text-xs text-muted-foreground font-medium">
+                <span>Start Date</span>
+                <span>End Date</span>
+                <span>Reason</span>
+                <span />
+              </div>
+              {vacationDays.map((vacation) => (
+                <div key={vacation.id} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_40px] gap-2 sm:gap-3 items-center border sm:border-0 rounded-lg sm:rounded-none p-3 sm:p-0">
+                  <Input
+                    type="date"
+                    value={vacation.startDate}
+                    onChange={(e) => updateVacation(vacation.id, "startDate", e.target.value)}
+                  />
+                  <Input
+                    type="date"
+                    value={vacation.endDate}
+                    onChange={(e) => updateVacation(vacation.id, "endDate", e.target.value)}
+                  />
+                  <Input
+                    value={vacation.reason || ""}
+                    onChange={(e) => updateVacation(vacation.id, "reason", e.target.value)}
+                    placeholder="Reason (optional)"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => removeVacation(vacation.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

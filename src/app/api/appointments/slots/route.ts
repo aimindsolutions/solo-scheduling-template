@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
-import { getAvailableSlots } from "@/lib/slots";
-import { parse, startOfDay, endOfDay } from "date-fns";
+import { getAvailableSlots, getNowLocalForSlots } from "@/lib/slots";
+import { startOfDayInTimeZone, endOfDayInTimeZone } from "@/lib/date-utils";
+import { parse } from "date-fns";
 import type { BusinessConfig, Appointment } from "@/types";
 
 export async function GET(request: NextRequest) {
@@ -20,9 +21,10 @@ export async function GET(request: NextRequest) {
   }
 
   const config = configSnap.data() as BusinessConfig;
+  const tz = config.timezone || "Europe/Kyiv";
 
-  const dayStart = startOfDay(date);
-  const dayEnd = endOfDay(date);
+  const dayStart = startOfDayInTimeZone(dateStr, tz);
+  const dayEnd = endOfDayInTimeZone(dateStr, tz);
 
   const appointmentsSnap = await adminDb
     .collection("appointments")
@@ -36,7 +38,8 @@ export async function GET(request: NextRequest) {
     dateTime: doc.data().dateTime.toDate(),
   })) as Appointment[];
 
-  const slots = getAvailableSlots(date, config, appointments, new Date());
+  const nowLocal = getNowLocalForSlots(date, tz);
+  const slots = getAvailableSlots(date, config, appointments, nowLocal);
 
   return NextResponse.json({ slots });
 }

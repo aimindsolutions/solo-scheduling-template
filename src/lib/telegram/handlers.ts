@@ -1,13 +1,13 @@
 import { adminDb } from "@/lib/firebase/admin";
-import { Timestamp } from "firebase-admin/firestore";
+import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { sendMessage, sendDocument, answerCallbackQuery, buildInlineKeyboard, buildReplyKeyboard } from "./bot";
 import { confirmationMessage, confirmedMessage, cancelledMessage, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, consentMessage, confirmBookingPrompt } from "./messages";
 import { confirmCalendarEvent, deleteCalendarEvent, createCalendarEvent } from "@/lib/calendar/google";
 import { notifyOwnerOfCancellation, notifyOwnerOfConfirmation, notifyOwnerOfNewBooking } from "./notifications";
 import { generateIcsFile, generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
-import { getAvailableSlots, getDaysWithAvailability } from "@/lib/slots";
-import { parse, format } from "date-fns";
-import { parseInTimeZone } from "@/lib/date-utils";
+import { getAvailableSlots, getDaysWithAvailability, getNowLocalForSlots } from "@/lib/slots";
+import { parse, format, startOfDay, endOfDay } from "date-fns";
+import { parseInTimeZone, formatInTimeZone, startOfDayInTimeZone, endOfDayInTimeZone, nowInTimeZone } from "@/lib/date-utils";
 import type { BusinessConfig, Appointment } from "@/types";
 
 interface TelegramUpdate {
@@ -37,6 +37,30 @@ async function getClientByChat(chatId: number) {
     .limit(1)
     .get();
   return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
+}
+
+async function getAvailableDatesWithBookings(config: BusinessConfig): Promise<string[]> {
+  const tz = config.timezone || "Europe/Kyiv";
+  const todayStr = nowInTimeZone(tz).date;
+  const now = new Date();
+  const rangeEnd = new Date(now);
+  rangeEnd.setDate(rangeEnd.getDate() + 15);
+
+  const dayStartUtc = startOfDayInTimeZone(todayStr, tz);
+
+  const snap = await adminDb
+    .collection("appointments")
+    .where("dateTime", ">=", dayStartUtc)
+    .where("dateTime", "<=", rangeEnd)
+    .get();
+
+  const allAppointments = snap.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+    dateTime: doc.data().dateTime.toDate(),
+  })) as Appointment[];
+
+  return getDaysWithAvailability(now, 14, config, allAppointments);
 }
 
 export async function handleTelegramUpdate(update: TelegramUpdate) {
@@ -81,7 +105,7 @@ async function handleCallbackQuery(query: {
 
     if (client) {
       await adminDb.collection("clients").doc((client as { id: string }).id).update({
-        confirmedAppointments: (((client as Record<string, unknown>).confirmedAppointments as number) || 0) + 1,
+        confirmedAppointments: FieldValue.increment(1),
         updatedAt: Timestamp.now(),
       });
     }
@@ -110,7 +134,7 @@ async function handleCallbackQuery(query: {
 
     if (client) {
       await adminDb.collection("clients").doc((client as { id: string }).id).update({
-        cancelledAppointments: (((client as Record<string, unknown>).cancelledAppointments as number) || 0) + 1,
+        cancelledAppointments: FieldValue.increment(1),
         updatedAt: Timestamp.now(),
       });
     }
@@ -138,7 +162,7 @@ async function handleCallbackQuery(query: {
 
     if (client) {
       await adminDb.collection("clients").doc((client as { id: string }).id).update({
-        cancelledAppointments: (((client as Record<string, unknown>).cancelledAppointments as number) || 0) + 1,
+        cancelledAppointments: FieldValue.increment(1),
         updatedAt: Timestamp.now(),
       });
     }
@@ -166,13 +190,10 @@ async function handleCallbackQuery(query: {
 
     if (apt.clientId) {
       try {
-        const clientDoc = await adminDb.collection("clients").doc(apt.clientId).get();
-        if (clientDoc.exists) {
-          await adminDb.collection("clients").doc(apt.clientId).update({
-            cancelledAppointments: (clientDoc.data()!.cancelledAppointments || 0) + 1,
-            updatedAt: Timestamp.now(),
-          });
-        }
+        await adminDb.collection("clients").doc(apt.clientId).update({
+          cancelledAppointments: FieldValue.increment(1),
+          updatedAt: Timestamp.now(),
+        });
       } catch {}
     }
 
@@ -255,6 +276,7 @@ async function handleMessage(message: {
         await sendMessage(chatId, confirmationMessage(lang, {
           date: apt.dateTime.toDate(),
           serviceName,
+          timezone: config?.timezone,
         }), {
           replyMarkup: buildInlineKeyboard([
             [
@@ -397,7 +419,7 @@ async function startBookingFlow(
     const config = await getConfig();
     if (!config) return;
 
-    const availableDates = getDaysWithAvailability(new Date(), 14, config);
+    const availableDates = await getAvailableDatesWithBookings(config);
     const buttons = availableDates.slice(0, 7).map((d) => [
       { text: d, callbackData: `date:${d}` },
     ]);
@@ -433,7 +455,7 @@ async function handlePhoneShared(chatId: number, phone: string, lang: string) {
   const config = await getConfig();
   if (!config) return;
 
-  const availableDates = getDaysWithAvailability(new Date(), 14, config);
+  const availableDates = await getAvailableDatesWithBookings(config);
   const buttons = availableDates.slice(0, 7).map((d) => [
     { text: d, callbackData: `date:${d}` },
   ]);
@@ -447,12 +469,11 @@ async function handleDateSelection(chatId: number, dateStr: string, lang: string
   const config = await getConfig();
   if (!config) return;
 
+  const tz = config.timezone || "Europe/Kyiv";
   const date = parse(dateStr, "yyyy-MM-dd", new Date());
 
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
+  const dayStart = startOfDayInTimeZone(dateStr, tz);
+  const dayEnd = endOfDayInTimeZone(dateStr, tz);
 
   const appointmentsSnap = await adminDb
     .collection("appointments")
@@ -466,10 +487,11 @@ async function handleDateSelection(chatId: number, dateStr: string, lang: string
     dateTime: doc.data().dateTime.toDate(),
   })) as Appointment[];
 
-  const slots = getAvailableSlots(date, config, appointments, new Date());
+  const nowLocal = getNowLocalForSlots(date, tz);
+  const slots = getAvailableSlots(date, config, appointments, nowLocal);
 
   if (slots.length === 0) {
-    const availableDates = getDaysWithAvailability(new Date(), 14, config);
+    const availableDates = await getAvailableDatesWithBookings(config);
     const buttons = availableDates.slice(0, 7).map((d) => [
       { text: d, callbackData: `date:${d}` },
     ]);
@@ -510,7 +532,7 @@ async function handleTimeSelection(chatId: number, dateStr: string, timeStr: str
     notes: "",
   });
 
-  await sendMessage(chatId, confirmBookingPrompt(lang, { date: dateTime, serviceName }), {
+  await sendMessage(chatId, confirmBookingPrompt(lang, { date: dateTime, serviceName, timezone: config.timezone }), {
     replyMarkup: buildInlineKeyboard([
       [
         { text: lang === "uk" ? "✅ Підтвердити" : "✅ Confirm", callbackData: "book_confirm" },
@@ -550,8 +572,8 @@ async function handleBookingConfirm(chatId: number, lang: string) {
       consentTimestamp: Timestamp.now(),
       consentLanguage: lang,
       consentJurisdiction: config.jurisdiction || "UA",
-      totalAppointments: 1,
-      confirmedAppointments: 1,
+      totalAppointments: 0,
+      confirmedAppointments: 0,
       cancelledAppointments: 0,
       noShowAppointments: 0,
       createdAt: Timestamp.now(),
@@ -562,8 +584,6 @@ async function handleBookingConfirm(chatId: number, lang: string) {
     clientId = clientQuery.docs[0].id;
     await adminDb.collection("clients").doc(clientId).update({
       telegramChatId: String(chatId),
-      totalAppointments: (clientQuery.docs[0].data().totalAppointments || 0) + 1,
-      confirmedAppointments: (clientQuery.docs[0].data().confirmedAppointments || 0) + 1,
       updatedAt: Timestamp.now(),
     });
   }
@@ -582,25 +602,71 @@ async function handleBookingConfirm(chatId: number, lang: string) {
     }
   } catch {}
 
-  await adminDb.collection("appointments").add({
-    clientId,
-    clientName: session.name,
-    clientPhone: session.phone,
-    dateTime: Timestamp.fromDate(dateTime),
-    durationMinutes,
-    status: "confirmed",
-    source: "telegram",
-    googleCalendarEventId: googleCalendarEventId || null,
-    reminder24hSent: false,
-    reminder2hSent: false,
-    notes,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+  const tz = config.timezone || "Europe/Kyiv";
+  const bookingDate = parse(session.selectedDate, "yyyy-MM-dd", new Date());
+  const dayStart = startOfDayInTimeZone(session.selectedDate, tz);
+  const dayEnd = endOfDayInTimeZone(session.selectedDate, tz);
+  const appointmentRef = adminDb.collection("appointments").doc();
+
+  const slotTaken = await adminDb.runTransaction(async (tx) => {
+    const existingSnap = await tx.get(
+      adminDb
+        .collection("appointments")
+        .where("dateTime", ">=", dayStart)
+        .where("dateTime", "<=", dayEnd)
+    );
+
+    const existingAppointments = existingSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      dateTime: doc.data().dateTime.toDate(),
+    })) as Appointment[];
+
+    const nowLocal = getNowLocalForSlots(bookingDate, tz);
+    const availableSlots = getAvailableSlots(bookingDate, config as BusinessConfig, existingAppointments, nowLocal);
+
+    if (!availableSlots.includes(session.selectedTime)) {
+      return true;
+    }
+
+    tx.set(appointmentRef, {
+      clientId,
+      clientName: session.name,
+      clientPhone: session.phone,
+      dateTime: Timestamp.fromDate(dateTime),
+      durationMinutes,
+      status: "confirmed",
+      source: "telegram",
+      googleCalendarEventId: googleCalendarEventId || null,
+      reminder24hSent: false,
+      reminder2hSent: false,
+      notes,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+
+    tx.update(adminDb.collection("clients").doc(clientId), {
+      totalAppointments: FieldValue.increment(1),
+      confirmedAppointments: FieldValue.increment(1),
+      updatedAt: Timestamp.now(),
+    });
+
+    return false;
   });
 
   await adminDb.collection("bookingSessions").doc(String(chatId)).delete();
 
-  await sendMessage(chatId, bookingConfirmedMessage(lang, { date: dateTime, serviceName }));
+  if (slotTaken) {
+    await sendMessage(
+      chatId,
+      lang === "uk"
+        ? "😔 На жаль, цей час вже зайнятий. Спробуйте /book знову."
+        : "😔 Sorry, this time slot is no longer available. Try /book again."
+    );
+    return;
+  }
+
+  await sendMessage(chatId, bookingConfirmedMessage(lang, { date: dateTime, serviceName, timezone: config.timezone }));
   await sendCalendarLinks(chatId, { dateTime: { toDate: () => dateTime }, durationMinutes }, lang);
 
   await notifyOwnerOfNewBooking({
@@ -667,9 +733,12 @@ async function showCancelMenu(chatId: number, lang: string) {
     return;
   }
 
+  const config = await getConfig();
+  const tz = config?.timezone || "Europe/Kyiv";
+
   const buttons = snap.docs.map((doc) => {
     const d = doc.data();
-    const dateStr = format(d.dateTime.toDate(), "dd.MM.yyyy HH:mm");
+    const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
     return [{ text: `❌ ${dateStr}`, callbackData: `cancel_apt:${doc.id}` }];
   });
 
@@ -686,6 +755,9 @@ async function showMyAppointments(chatId: number, lang: string) {
     await sendMessage(chatId, lang === "uk" ? "У вас поки немає записів." : "You don't have any appointments yet.");
     return;
   }
+
+  const config = await getConfig();
+  const tz = config?.timezone || "Europe/Kyiv";
 
   const now = new Date();
   const snap = await adminDb
@@ -704,7 +776,7 @@ async function showMyAppointments(chatId: number, lang: string) {
 
   const lines = snap.docs.map((doc) => {
     const d = doc.data();
-    const dateStr = format(d.dateTime.toDate(), "dd.MM.yyyy HH:mm");
+    const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
     const status = d.status === "confirmed" ? "✅" : "⏳";
     return `${status} ${dateStr}`;
   });
@@ -713,16 +785,17 @@ async function showMyAppointments(chatId: number, lang: string) {
 }
 
 async function showOwnerDayOverview(chatId: number) {
-  const now = new Date();
-  const dayStart = new Date(now);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(now);
-  dayEnd.setHours(23, 59, 59, 999);
+  const config = await getConfig();
+  const tz = config?.timezone || "Europe/Kyiv";
+  const todayStr = nowInTimeZone(tz).date;
+
+  const dayStartUtc = startOfDayInTimeZone(todayStr, tz);
+  const dayEndUtc = endOfDayInTimeZone(todayStr, tz);
 
   const snap = await adminDb
     .collection("appointments")
-    .where("dateTime", ">=", dayStart)
-    .where("dateTime", "<=", dayEnd)
+    .where("dateTime", ">=", dayStartUtc)
+    .where("dateTime", "<=", dayEndUtc)
     .orderBy("dateTime", "asc")
     .get();
 
@@ -735,7 +808,7 @@ async function showOwnerDayOverview(chatId: number) {
 
   const lines = active.map((doc) => {
     const d = doc.data();
-    const time = format(d.dateTime.toDate(), "HH:mm");
+    const time = formatInTimeZone(d.dateTime.toDate(), tz, "HH:mm");
     const status = d.status === "confirmed" ? "✅" : "⏳";
     const phone = d.clientPhone ? ` | ${d.clientPhone}` : "";
     const notes = d.notes ? `\n   💬 ${d.notes}` : "";
@@ -744,7 +817,7 @@ async function showOwnerDayOverview(chatId: number) {
 
   await sendMessage(
     chatId,
-    `📋 <b>Записи на сьогодні (${format(now, "dd.MM.yyyy")}):</b>\n\n${lines.join("\n\n")}`
+    `📋 <b>Записи на сьогодні (${todayStr.split("-").reverse().join(".")}):</b>\n\n${lines.join("\n\n")}`
   );
 }
 
@@ -763,9 +836,12 @@ async function showOwnerCancelMenu(chatId: number) {
     return;
   }
 
+  const config = await getConfig();
+  const tz = config?.timezone || "Europe/Kyiv";
+
   const buttons = snap.docs.map((doc) => {
     const d = doc.data();
-    const dateStr = format(d.dateTime.toDate(), "dd.MM HH:mm");
+    const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM HH:mm");
     return [{ text: `❌ ${dateStr} — ${d.clientName}`, callbackData: `owner_cancel:${doc.id}` }];
   });
 

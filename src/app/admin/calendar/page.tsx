@@ -11,9 +11,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Eye, Trash2, CheckCircle, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Trash2, CheckCircle } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
+import { formatInTimeZone } from "@/lib/date-utils";
 
 interface AppointmentData {
   id: string;
@@ -39,13 +40,14 @@ const statusColor: Record<string, string> = {
 const statusDot: Record<string, string> = {
   booked: "bg-orange-500",
   confirmed: "bg-green-500",
-  cancelled: "bg-red-300",
+  cancelled: "bg-red-500",
   completed: "bg-blue-500",
   no_show: "bg-gray-400",
 };
 
 export default function AdminCalendarPage() {
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
+  const [timezone, setTimezone] = useState("Europe/Kyiv");
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
@@ -62,6 +64,7 @@ export default function AdminCalendarPage() {
       const res = await adminFetch("/api/appointments");
       const data = await res.json();
       setAppointments(data.appointments || []);
+      if (data.timezone) setTimezone(data.timezone);
     } catch {
       setAppointments([]);
     } finally {
@@ -72,6 +75,19 @@ export default function AdminCalendarPage() {
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
+
+  function fmtTime(iso: string) {
+    return formatInTimeZone(iso, timezone, "HH:mm");
+  }
+  function fmtDateTime(iso: string) {
+    return formatInTimeZone(iso, timezone, "dd.MM.yyyy HH:mm");
+  }
+  function fmtShort(iso: string) {
+    return formatInTimeZone(iso, timezone, "dd.MM HH:mm");
+  }
+  function getAptDateStr(iso: string) {
+    return formatInTimeZone(iso, timezone, "yyyy-MM-dd");
+  }
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -109,7 +125,7 @@ export default function AdminCalendarPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Date & Time</span>
-              <span>{format(new Date(apt.dateTime), "dd.MM.yyyy HH:mm")}</span>
+              <span>{fmtDateTime(apt.dateTime)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Duration</span>
@@ -132,7 +148,7 @@ export default function AdminCalendarPage() {
             {apt.createdAt && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Created</span>
-                <span>{format(new Date(apt.createdAt), "dd.MM.yyyy HH:mm")}</span>
+                <span>{fmtDateTime(apt.createdAt)}</span>
               </div>
             )}
           </div>
@@ -195,7 +211,7 @@ export default function AdminCalendarPage() {
           </DialogHeader>
           <p className="text-sm">{labels[confirmAction.type]}</p>
           <p className="text-sm text-muted-foreground">
-            {confirmAction.apt.clientName} — {format(new Date(confirmAction.apt.dateTime), "dd.MM HH:mm")}
+            {confirmAction.apt.clientName} — {fmtShort(confirmAction.apt.dateTime)}
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmAction(null)}>
@@ -232,8 +248,9 @@ export default function AdminCalendarPage() {
 
   function DayViewDialog() {
     if (!dayView) return null;
+    const dayStr = format(dayView, "yyyy-MM-dd");
     const dayApts = appointments
-      .filter((a) => isSameDay(new Date(a.dateTime), dayView))
+      .filter((a) => getAptDateStr(a.dateTime) === dayStr)
       .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
 
     return (
@@ -249,16 +266,16 @@ export default function AdminCalendarPage() {
               {dayApts.map((apt) => (
                 <div
                   key={apt.id}
-                  className="p-3 border rounded-lg space-y-2"
+                  className={`p-3 border rounded-lg space-y-2 ${apt.status === "cancelled" ? "opacity-60 border-red-200 dark:border-red-900/50" : ""}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-2.5 h-2.5 rounded-full ${statusDot[apt.status]}`} />
-                      <span className="font-medium">
-                        {format(new Date(apt.dateTime), "HH:mm")}
+                      <span className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>
+                        {fmtTime(apt.dateTime)}
                       </span>
                       <span>—</span>
-                      <span className="font-medium">{apt.clientName}</span>
+                      <span className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>{apt.clientName}</span>
                     </div>
                     <Badge className={statusColor[apt.status]}>{apt.status}</Badge>
                   </div>
@@ -334,12 +351,9 @@ export default function AdminCalendarPage() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
           {days.map((day) => {
+            const dayStr = format(day, "yyyy-MM-dd");
             const dayAppointments = appointments
-              .filter(
-                (a) =>
-                  isSameDay(new Date(a.dateTime), day) &&
-                  a.status !== "cancelled"
-              )
+              .filter((a) => getAptDateStr(a.dateTime) === dayStr)
               .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
             const isToday = isSameDay(day, new Date());
 
@@ -370,15 +384,15 @@ export default function AdminCalendarPage() {
                     <button
                       key={apt.id}
                       onClick={() => setSelectedApt(apt)}
-                      className="w-full text-left text-sm p-1.5 rounded border flex items-center gap-1.5 hover:bg-accent transition-colors cursor-pointer"
+                      className={`w-full text-left text-sm p-1.5 rounded border flex items-center gap-1.5 hover:bg-accent transition-colors cursor-pointer ${apt.status === "cancelled" ? "opacity-50" : ""}`}
                     >
                       <div
                         className={`w-2 h-2 rounded-full shrink-0 ${statusDot[apt.status] || ""}`}
                       />
-                      <span className="font-medium">
-                        {format(new Date(apt.dateTime), "HH:mm")}
+                      <span className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>
+                        {fmtTime(apt.dateTime)}
                       </span>
-                      <span className="truncate text-muted-foreground">
+                      <span className={`truncate text-muted-foreground ${apt.status === "cancelled" ? "line-through" : ""}`}>
                         {apt.clientName}
                       </span>
                     </button>

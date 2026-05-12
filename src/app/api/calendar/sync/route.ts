@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { listCalendarEvents } from "@/lib/calendar/google";
-import { Timestamp } from "firebase-admin/firestore";
+import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { startOfDay, endOfDay, addDays } from "date-fns";
 import { notifyClientOfCancellation } from "@/lib/telegram/notifications";
+import { verifyAdminAuth } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const body = await request.json();
   const { daysAhead = 14 } = body;
 
@@ -71,13 +75,10 @@ export async function POST(request: NextRequest) {
 
       if (data.clientId) {
         try {
-          const clientDoc = await adminDb.collection("clients").doc(data.clientId).get();
-          if (clientDoc.exists) {
-            await adminDb.collection("clients").doc(data.clientId).update({
-              cancelledAppointments: (clientDoc.data()!.cancelledAppointments || 0) + 1,
-              updatedAt: Timestamp.now(),
-            });
-          }
+          await adminDb.collection("clients").doc(data.clientId).update({
+            cancelledAppointments: FieldValue.increment(1),
+            updatedAt: Timestamp.now(),
+          });
         } catch {}
       }
 

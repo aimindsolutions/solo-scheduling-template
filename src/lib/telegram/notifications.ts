@@ -1,10 +1,17 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { sendMessage } from "./bot";
 import { clientCancelledNotifyOwner, ownerCancelledNotifyClient, clientConfirmedNotifyOwner, ownerConfirmedNotifyClient } from "./messages";
+import { formatInTimeZone } from "@/lib/date-utils";
 
 async function getConfig() {
   const snap = await adminDb.collection("businessConfig").doc("main").get();
   return snap.exists ? snap.data()! : null;
+}
+
+function toDate(dt: { toDate: () => Date } | Date): Date {
+  return typeof (dt as { toDate?: () => Date }).toDate === "function"
+    ? (dt as { toDate: () => Date }).toDate()
+    : dt as Date;
 }
 
 export async function notifyOwnerOfCancellation(appointment: {
@@ -14,15 +21,13 @@ export async function notifyOwnerOfCancellation(appointment: {
   const config = await getConfig();
   if (!config?.ownerTelegramChatId) return;
 
-  const date = typeof (appointment.dateTime as { toDate?: () => Date }).toDate === "function"
-    ? (appointment.dateTime as { toDate: () => Date }).toDate()
-    : appointment.dateTime as Date;
-
+  const date = toDate(appointment.dateTime);
   const serviceName = config.serviceName || "Appointment";
+  const tz = config.timezone || "Europe/Kyiv";
 
   await sendMessage(
     config.ownerTelegramChatId,
-    clientCancelledNotifyOwner({ clientName: appointment.clientName, date, serviceName })
+    clientCancelledNotifyOwner({ clientName: appointment.clientName, date, serviceName, timezone: tz })
   );
 }
 
@@ -32,6 +37,7 @@ export async function notifyClientOfCancellation(appointment: {
 }) {
   const config = await getConfig();
   const serviceName = config?.serviceName || "Appointment";
+  const tz = config?.timezone || "Europe/Kyiv";
 
   const clientDoc = await adminDb.collection("clients").doc(appointment.clientId).get();
   if (!clientDoc.exists) return;
@@ -40,13 +46,11 @@ export async function notifyClientOfCancellation(appointment: {
   if (!client.telegramChatId) return;
 
   const lang = client.language || "uk";
-  const date = typeof (appointment.dateTime as { toDate?: () => Date }).toDate === "function"
-    ? (appointment.dateTime as { toDate: () => Date }).toDate()
-    : appointment.dateTime as Date;
+  const date = toDate(appointment.dateTime);
 
   await sendMessage(
     client.telegramChatId,
-    ownerCancelledNotifyClient(lang, { date, serviceName })
+    ownerCancelledNotifyClient(lang, { date, serviceName, timezone: tz })
   );
 }
 
@@ -57,15 +61,13 @@ export async function notifyOwnerOfConfirmation(appointment: {
   const config = await getConfig();
   if (!config?.ownerTelegramChatId) return;
 
-  const date = typeof (appointment.dateTime as { toDate?: () => Date }).toDate === "function"
-    ? (appointment.dateTime as { toDate: () => Date }).toDate()
-    : appointment.dateTime as Date;
-
+  const date = toDate(appointment.dateTime);
   const serviceName = config.serviceName || "Appointment";
+  const tz = config.timezone || "Europe/Kyiv";
 
   await sendMessage(
     config.ownerTelegramChatId,
-    clientConfirmedNotifyOwner({ clientName: appointment.clientName, date, serviceName })
+    clientConfirmedNotifyOwner({ clientName: appointment.clientName, date, serviceName, timezone: tz })
   );
 }
 
@@ -75,6 +77,7 @@ export async function notifyClientOfConfirmation(appointment: {
 }) {
   const config = await getConfig();
   const serviceName = config?.serviceName || "Appointment";
+  const tz = config?.timezone || "Europe/Kyiv";
 
   const clientDoc = await adminDb.collection("clients").doc(appointment.clientId).get();
   if (!clientDoc.exists) return;
@@ -83,13 +86,11 @@ export async function notifyClientOfConfirmation(appointment: {
   if (!client.telegramChatId) return;
 
   const lang = client.language || "uk";
-  const date = typeof (appointment.dateTime as { toDate?: () => Date }).toDate === "function"
-    ? (appointment.dateTime as { toDate: () => Date }).toDate()
-    : appointment.dateTime as Date;
+  const date = toDate(appointment.dateTime);
 
   await sendMessage(
     client.telegramChatId,
-    ownerConfirmedNotifyClient(lang, { date, serviceName })
+    ownerConfirmedNotifyClient(lang, { date, serviceName, timezone: tz })
   );
 }
 
@@ -102,12 +103,10 @@ export async function notifyOwnerOfNewBooking(appointment: {
   const config = await getConfig();
   if (!config?.ownerTelegramChatId) return;
 
-  const date = typeof (appointment.dateTime as { toDate?: () => Date }).toDate === "function"
-    ? (appointment.dateTime as { toDate: () => Date }).toDate()
-    : appointment.dateTime as Date;
-
+  const date = toDate(appointment.dateTime);
   const serviceName = config.serviceName || "Appointment";
-  const dateStr = (await import("date-fns")).format(date, "d MMMM yyyy, HH:mm");
+  const tz = config.timezone || "Europe/Kyiv";
+  const dateStr = formatInTimeZone(date, tz, "dd.MM.yyyy HH:mm");
   const notesLine = appointment.notes ? `\n💬 ${appointment.notes}` : "";
 
   await sendMessage(

@@ -1,5 +1,12 @@
 import { Timestamp } from "firebase/firestore";
 
+export interface VacationDay {
+  id: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
 export interface BusinessConfig {
   businessName: string;
   serviceName: string;
@@ -8,6 +15,7 @@ export interface BusinessConfig {
     [day: string]: { start: string; end: string } | null;
   };
   breakSlots: { start: string; end: string }[];
+  vacationDays?: VacationDay[];
   ownerEmail: string;
   ownerTelegramChatId?: string;
   googleCalendarId: string;
