@@ -760,7 +760,11 @@ async function showCancelMenu(chatId: number, lang: string) {
   const config = await getConfig();
   const tz = config?.timezone || "Europe/Kyiv";
 
-  const buttons = snap.docs.map((doc) => {
+  const sortedDocs = snap.docs.sort((a, b) =>
+    a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime()
+  );
+
+  const buttons = sortedDocs.map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
     return [{ text: `❌ ${dateStr}`, callbackData: `cancel_apt:${doc.id}` }];
@@ -789,7 +793,6 @@ async function showMyAppointments(chatId: number, lang: string) {
     .where("clientId", "==", (client as { id: string }).id)
     .where("dateTime", ">=", now)
     .where("status", "in", ["booked", "confirmed"])
-    .orderBy("dateTime", "asc")
     .limit(5)
     .get();
 
@@ -798,7 +801,9 @@ async function showMyAppointments(chatId: number, lang: string) {
     return;
   }
 
-  const lines = snap.docs.map((doc) => {
+  const lines = snap.docs
+    .sort((a, b) => a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime())
+    .map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
     const status = d.status === "confirmed" ? "✅" : "⏳";
@@ -851,7 +856,6 @@ async function showOwnerCancelMenu(chatId: number) {
     .collection("appointments")
     .where("dateTime", ">=", now)
     .where("status", "in", ["booked", "confirmed"])
-    .orderBy("dateTime", "asc")
     .limit(10)
     .get();
 
@@ -863,7 +867,11 @@ async function showOwnerCancelMenu(chatId: number) {
   const config = await getConfig();
   const tz = config?.timezone || "Europe/Kyiv";
 
-  const buttons = snap.docs.map((doc) => {
+  const sorted = snap.docs.sort((a, b) =>
+    a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime()
+  );
+
+  const buttons = sorted.map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM HH:mm");
     return [{ text: `❌ ${dateStr} — ${d.clientName}`, callbackData: `owner_cancel:${doc.id}` }];
