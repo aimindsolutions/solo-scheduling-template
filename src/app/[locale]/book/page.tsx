@@ -6,6 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import { BookingDatePicker } from "@/components/booking/date-picker";
 import { BookingTimeSlots } from "@/components/booking/time-slots";
 import { BookingForm } from "@/components/booking/booking-form";
+import { WeekOverview } from "@/components/booking/week-overview";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -56,6 +57,15 @@ export default function BookPage() {
               }}
             />
           )}
+
+          <WeekOverview
+            selectedDate={selectedDate}
+            selectedTime={selectedTime}
+            onSelectSlot={(date, time) => {
+              setSelectedDate(date);
+              setSelectedTime(time);
+            }}
+          />
         </div>
       </main>
     </div>

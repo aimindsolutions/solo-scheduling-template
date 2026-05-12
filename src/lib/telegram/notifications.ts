@@ -97,6 +97,7 @@ export async function notifyOwnerOfNewBooking(appointment: {
   clientName: string;
   dateTime: { toDate: () => Date } | Date;
   phone: string;
+  notes?: string | null;
 }) {
   const config = await getConfig();
   if (!config?.ownerTelegramChatId) return;
@@ -107,9 +108,10 @@ export async function notifyOwnerOfNewBooking(appointment: {
 
   const serviceName = config.serviceName || "Appointment";
   const dateStr = (await import("date-fns")).format(date, "d MMMM yyyy, HH:mm");
+  const notesLine = appointment.notes ? `\n💬 ${appointment.notes}` : "";
 
   await sendMessage(
     config.ownerTelegramChatId,
-    `📬 Новий запис!\n👤 ${appointment.clientName}\n📱 ${appointment.phone}\n📅 ${serviceName}\n📆 ${dateStr}`
+    `📬 Новий запис!\n👤 ${appointment.clientName}\n📱 ${appointment.phone}\n📅 ${serviceName}\n📆 ${dateStr}${notesLine}`
   );
 }

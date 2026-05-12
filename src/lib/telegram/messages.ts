@@ -94,6 +94,20 @@ export function bookingConfirmedMessage(
   return `✅ Appointment booked!\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\nAdd to your calendar:`;
 }
 
+export function confirmBookingPrompt(
+  lang: string,
+  data: { date: Date; serviceName: string }
+) {
+  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", {
+    locale: getLocale(lang),
+  });
+
+  if (lang === "uk") {
+    return `📋 <b>Підтвердження запису:</b>\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\n💬 Можете додати коментар (просто напишіть текст) або натисніть кнопку для підтвердження:`;
+  }
+  return `📋 <b>Booking confirmation:</b>\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\n💬 You can add a comment (just type it) or press the button to confirm:`;
+}
+
 export function noSlotsMessage(lang: string) {
   if (lang === "uk") return "На жаль, немає вільних слотів на цю дату. Оберіть іншу:";
   return "Sorry, no available slots for this date. Pick another:";

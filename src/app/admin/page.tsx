@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { CheckCircle, X } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
 
 interface AppointmentData {
@@ -37,8 +37,9 @@ const statusColor: Record<string, string> = {
 export default function AdminDashboardPage() {
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedApt, setSelectedApt] = useState<AppointmentData | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
-    type: "cancel" | "confirm";
+    type: "confirm" | "complete" | "no_show";
     apt: AppointmentData;
   } | null>(null);
 
@@ -74,16 +75,14 @@ export default function AdminDashboardPage() {
 
   async function handleAction() {
     if (!confirmAction) return;
-    if (confirmAction.type === "cancel") {
-      await adminFetch(`/api/appointments/${confirmAction.apt.id}`, { method: "DELETE" });
-    } else {
-      await adminFetch(`/api/appointments/${confirmAction.apt.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "confirmed" }),
-      });
-    }
+    const statusMap = { confirm: "confirmed", complete: "completed", no_show: "no_show" };
+    await adminFetch(`/api/appointments/${confirmAction.apt.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: statusMap[confirmAction.type] }),
+    });
     setConfirmAction(null);
+    setSelectedApt(null);
     await fetchAppointments();
   }
 
@@ -134,7 +133,8 @@ export default function AdminDashboardPage() {
               {todayAppointments.map((apt) => (
                 <div
                   key={apt.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
+                  onClick={() => setSelectedApt(apt)}
                 >
                   <div>
                     <p className="font-medium">{apt.clientName}</p>
@@ -142,10 +142,10 @@ export default function AdminDashboardPage() {
                       {format(new Date(apt.dateTime), "HH:mm")} — {apt.clientPhone}
                     </p>
                     {apt.notes && (
-                      <p className="text-xs text-muted-foreground mt-1">{apt.notes}</p>
+                      <p className="text-xs text-muted-foreground mt-1">💬 {apt.notes}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     {apt.status === "booked" && (
                       <Button
                         size="sm"
@@ -154,16 +154,6 @@ export default function AdminDashboardPage() {
                         onClick={() => setConfirmAction({ type: "confirm", apt })}
                       >
                         <CheckCircle className="h-3.5 w-3.5 mr-1" /> Confirm
-                      </Button>
-                    )}
-                    {(apt.status === "booked" || apt.status === "confirmed") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-red-700 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/30"
-                        onClick={() => setConfirmAction({ type: "cancel", apt })}
-                      >
-                        <X className="h-3.5 w-3.5 mr-1" /> Cancel
                       </Button>
                     )}
                     <Badge className={statusColor[apt.status] || ""}>{apt.status}</Badge>
@@ -187,25 +177,19 @@ export default function AdminDashboardPage() {
               {upcomingAppointments.slice(0, 10).map((apt) => (
                 <div
                   key={apt.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
+                  onClick={() => setSelectedApt(apt)}
                 >
                   <div>
                     <p className="font-medium">{apt.clientName}</p>
                     <p className="text-sm text-muted-foreground">
                       {format(new Date(apt.dateTime), "dd.MM.yyyy HH:mm")} — {apt.clientPhone}
                     </p>
+                    {apt.notes && (
+                      <p className="text-xs text-muted-foreground mt-1">💬 {apt.notes}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {(apt.status === "booked" || apt.status === "confirmed") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-red-700 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/30"
-                        onClick={() => setConfirmAction({ type: "cancel", apt })}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
                     <Badge className={statusColor[apt.status] || ""}>{apt.status}</Badge>
                   </div>
                 </div>
@@ -215,18 +199,87 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
+      {selectedApt && (
+        <Dialog open={!!selectedApt} onOpenChange={() => setSelectedApt(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{selectedApt.clientName}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <Badge className={statusColor[selectedApt.status]}>{selectedApt.status}</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Date & Time</span>
+                <span>{format(new Date(selectedApt.dateTime), "dd.MM.yyyy HH:mm")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Duration</span>
+                <span>{selectedApt.durationMinutes} min</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Phone</span>
+                <span>{selectedApt.clientPhone || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Source</span>
+                <span>{selectedApt.source}</span>
+              </div>
+              {selectedApt.notes && (
+                <div>
+                  <span className="text-muted-foreground">Notes:</span>
+                  <p className="mt-1 p-2 bg-muted rounded text-sm">{selectedApt.notes}</p>
+                </div>
+              )}
+            </div>
+            {selectedApt.status !== "cancelled" && (
+              <DialogFooter className="flex-col gap-2 sm:flex-row">
+                {selectedApt.status === "booked" && (
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => setConfirmAction({ type: "confirm", apt: selectedApt })}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" /> Confirm
+                  </Button>
+                )}
+                {(selectedApt.status === "booked" || selectedApt.status === "confirmed") && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setConfirmAction({ type: "complete", apt: selectedApt })}
+                    >
+                      Complete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setConfirmAction({ type: "no_show", apt: selectedApt })}
+                    >
+                      No Show
+                    </Button>
+                  </>
+                )}
+              </DialogFooter>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
       {confirmAction && (
         <Dialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>
-                {confirmAction.type === "cancel" ? "Cancel Appointment" : "Confirm Appointment"}
-              </DialogTitle>
+              <DialogTitle>Confirm Action</DialogTitle>
             </DialogHeader>
             <p className="text-sm">
-              {confirmAction.type === "cancel"
-                ? "Cancel this appointment? The client will be notified."
-                : "Confirm this appointment?"}
+              {confirmAction.type === "confirm"
+                ? "Confirm this appointment?"
+                : confirmAction.type === "complete"
+                  ? "Mark as completed?"
+                  : "Mark as no-show?"}
             </p>
             <p className="text-sm text-muted-foreground">
               {confirmAction.apt.clientName} — {format(new Date(confirmAction.apt.dateTime), "dd.MM HH:mm")}
@@ -235,11 +288,8 @@ export default function AdminDashboardPage() {
               <Button variant="outline" onClick={() => setConfirmAction(null)}>
                 Back
               </Button>
-              <Button
-                variant={confirmAction.type === "cancel" ? "destructive" : "default"}
-                onClick={handleAction}
-              >
-                {confirmAction.type === "cancel" ? "Cancel Appointment" : "Confirm"}
+              <Button onClick={handleAction}>
+                Confirm
               </Button>
             </DialogFooter>
           </DialogContent>

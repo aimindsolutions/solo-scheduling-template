@@ -24,6 +24,7 @@
     "selectDate": "Оберіть дату",
     "selectTime": "Оберіть час",
     "noSlots": "Немає вільних слотів на цю дату",
+    "weekOverview": "Огляд тижня",
     "form": {
       "firstName": "Ім'я",
       "firstNamePlaceholder": "Введіть ваше ім'я",

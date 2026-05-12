@@ -1,9 +1,9 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
 import { sendMessage, sendDocument, answerCallbackQuery, buildInlineKeyboard, buildReplyKeyboard } from "./bot";
-import { confirmationMessage, confirmedMessage, cancelledMessage, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, consentMessage } from "./messages";
+import { confirmationMessage, confirmedMessage, cancelledMessage, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, consentMessage, confirmBookingPrompt } from "./messages";
 import { confirmCalendarEvent, deleteCalendarEvent, createCalendarEvent } from "@/lib/calendar/google";
-import { notifyOwnerOfCancellation, notifyOwnerOfConfirmation } from "./notifications";
+import { notifyOwnerOfCancellation, notifyOwnerOfConfirmation, notifyOwnerOfNewBooking } from "./notifications";
 import { generateIcsFile, generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
 import { getAvailableSlots, getDaysWithAvailability } from "@/lib/slots";
 import { parse, format } from "date-fns";
@@ -186,6 +186,17 @@ async function handleCallbackQuery(query: {
     await sendMessage(chatId, `✅ Запис скасовано: ${apt.clientName}`);
   }
 
+  if (action === "book_confirm") {
+    await handleBookingConfirm(chatId, lang);
+    return;
+  }
+
+  if (action === "book_cancel") {
+    await adminDb.collection("bookingSessions").doc(String(chatId)).delete();
+    await sendMessage(chatId, lang === "uk" ? "❌ Бронювання скасовано." : "❌ Booking cancelled.");
+    return;
+  }
+
   if (action === "date") {
     await handleDateSelection(chatId, query.data.replace("date:", ""), lang);
   }
@@ -349,6 +360,19 @@ async function handleMessage(message: {
       });
       return;
     }
+
+    if (session.step === "awaiting_confirmation" && text) {
+      await adminDb.collection("bookingSessions").doc(String(chatId)).update({
+        notes: text,
+      });
+      await sendMessage(
+        chatId,
+        lang === "uk"
+          ? `💬 Коментар збережено: "${text}"\n\nНатисніть ✅ Підтвердити для завершення.`
+          : `💬 Comment saved: "${text}"\n\nPress ✅ Confirm to finish.`
+      );
+      return;
+    }
   }
 }
 
@@ -473,13 +497,41 @@ async function handleTimeSelection(chatId: number, dateStr: string, timeStr: str
   const sessionSnap = await adminDb.collection("bookingSessions").doc(String(chatId)).get();
   if (!sessionSnap.exists) return;
 
-  const session = sessionSnap.data()!;
   const config = await getConfig();
   if (!config) return;
 
   const dateTime = parseInTimeZone(`${dateStr} ${timeStr}`, config.timezone || "Europe/Kyiv");
+  const serviceName = config.serviceName || "Appointment";
+
+  await adminDb.collection("bookingSessions").doc(String(chatId)).update({
+    selectedDate: dateStr,
+    selectedTime: timeStr,
+    step: "awaiting_confirmation",
+    notes: "",
+  });
+
+  await sendMessage(chatId, confirmBookingPrompt(lang, { date: dateTime, serviceName }), {
+    replyMarkup: buildInlineKeyboard([
+      [
+        { text: lang === "uk" ? "✅ Підтвердити" : "✅ Confirm", callbackData: "book_confirm" },
+        { text: lang === "uk" ? "❌ Скасувати" : "❌ Cancel", callbackData: "book_cancel" },
+      ],
+    ]),
+  });
+}
+
+async function handleBookingConfirm(chatId: number, lang: string) {
+  const sessionSnap = await adminDb.collection("bookingSessions").doc(String(chatId)).get();
+  if (!sessionSnap.exists) return;
+
+  const session = sessionSnap.data()!;
+  const config = await getConfig();
+  if (!config) return;
+
+  const dateTime = parseInTimeZone(`${session.selectedDate} ${session.selectedTime}`, config.timezone || "Europe/Kyiv");
   const durationMinutes = config.defaultDurationMinutes || 30;
   const serviceName = config.serviceName || "Appointment";
+  const notes = session.notes?.trim() || null;
 
   let clientId: string;
   const clientQuery = await adminDb
@@ -517,12 +569,13 @@ async function handleTimeSelection(chatId: number, dateStr: string, timeStr: str
   }
 
   let googleCalendarEventId: string | undefined;
+  const calendarDescription = `Phone: ${session.phone}\nSource: Telegram` + (notes ? `\nComment: ${notes}` : "");
   try {
     googleCalendarEventId = await createCalendarEvent({
       summary: `${serviceName} — ${session.name}`,
       startTime: dateTime,
       durationMinutes,
-      description: `Phone: ${session.phone}\nSource: Telegram`,
+      description: calendarDescription,
     });
     if (googleCalendarEventId) {
       await confirmCalendarEvent(googleCalendarEventId);
@@ -540,7 +593,7 @@ async function handleTimeSelection(chatId: number, dateStr: string, timeStr: str
     googleCalendarEventId: googleCalendarEventId || null,
     reminder24hSent: false,
     reminder2hSent: false,
-    notes: null,
+    notes,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
@@ -549,6 +602,13 @@ async function handleTimeSelection(chatId: number, dateStr: string, timeStr: str
 
   await sendMessage(chatId, bookingConfirmedMessage(lang, { date: dateTime, serviceName }));
   await sendCalendarLinks(chatId, { dateTime: { toDate: () => dateTime }, durationMinutes }, lang);
+
+  await notifyOwnerOfNewBooking({
+    clientName: session.name,
+    dateTime: { toDate: () => dateTime },
+    phone: session.phone,
+    notes,
+  });
 }
 
 async function sendCalendarLinks(chatId: number, appointment: Record<string, unknown>, lang: string) {

@@ -24,6 +24,7 @@
     "selectDate": "Select a date",
     "selectTime": "Select a time",
     "noSlots": "No available slots for this date",
+    "weekOverview": "Week Overview",
     "form": {
       "firstName": "First Name",
       "firstNamePlaceholder": "Enter your first name",
