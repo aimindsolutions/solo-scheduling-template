@@ -747,12 +747,15 @@ async function showCancelMenu(chatId: number, lang: string) {
     .collection("appointments")
     .where("clientId", "==", (client as { id: string }).id)
     .where("dateTime", ">=", now)
-    .where("status", "in", ["booked", "confirmed"])
-    .orderBy("dateTime", "asc")
-    .limit(5)
+    .limit(10)
     .get();
 
-  if (snap.empty) {
+  const cancelable = snap.docs
+    .filter((d) => ["booked", "confirmed"].includes(d.data().status))
+    .sort((a, b) => a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime())
+    .slice(0, 5);
+
+  if (cancelable.length === 0) {
     await sendMessage(chatId, lang === "uk" ? "У вас немає майбутніх записів для скасування." : "You have no upcoming appointments to cancel.");
     return;
   }
@@ -760,11 +763,7 @@ async function showCancelMenu(chatId: number, lang: string) {
   const config = await getConfig();
   const tz = config?.timezone || "Europe/Kyiv";
 
-  const sortedDocs = snap.docs.sort((a, b) =>
-    a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime()
-  );
-
-  const buttons = sortedDocs.map((doc) => {
+  const buttons = cancelable.map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
     return [{ text: `❌ ${dateStr}`, callbackData: `cancel_apt:${doc.id}` }];
@@ -792,18 +791,20 @@ async function showMyAppointments(chatId: number, lang: string) {
     .collection("appointments")
     .where("clientId", "==", (client as { id: string }).id)
     .where("dateTime", ">=", now)
-    .where("status", "in", ["booked", "confirmed"])
-    .limit(5)
+    .limit(10)
     .get();
 
-  if (snap.empty) {
+  const upcoming = snap.docs
+    .filter((d) => ["booked", "confirmed"].includes(d.data().status))
+    .sort((a, b) => a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime())
+    .slice(0, 5);
+
+  if (upcoming.length === 0) {
     await sendMessage(chatId, lang === "uk" ? "У вас немає майбутніх записів." : "You have no upcoming appointments.");
     return;
   }
 
-  const lines = snap.docs
-    .sort((a, b) => a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime())
-    .map((doc) => {
+  const lines = upcoming.map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
     const status = d.status === "confirmed" ? "✅" : "⏳";
@@ -855,11 +856,15 @@ async function showOwnerCancelMenu(chatId: number) {
   const snap = await adminDb
     .collection("appointments")
     .where("dateTime", ">=", now)
-    .where("status", "in", ["booked", "confirmed"])
-    .limit(10)
+    .limit(20)
     .get();
 
-  if (snap.empty) {
+  const active = snap.docs
+    .filter((d) => ["booked", "confirmed"].includes(d.data().status))
+    .sort((a, b) => a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime())
+    .slice(0, 10);
+
+  if (active.length === 0) {
     await sendMessage(chatId, "Немає майбутніх записів для скасування.");
     return;
   }
@@ -867,9 +872,7 @@ async function showOwnerCancelMenu(chatId: number) {
   const config = await getConfig();
   const tz = config?.timezone || "Europe/Kyiv";
 
-  const sorted = snap.docs.sort((a, b) =>
-    a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime()
-  );
+  const sorted = active;
 
   const buttons = sorted.map((doc) => {
     const d = doc.data();
