@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { CheckCircle, X } from "lucide-react";
+import { adminFetch } from "@/lib/api-client";
 
 interface AppointmentData {
   id: string;
@@ -26,11 +27,11 @@ interface AppointmentData {
 }
 
 const statusColor: Record<string, string> = {
-  booked: "bg-orange-100 text-orange-800",
-  confirmed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
-  completed: "bg-blue-100 text-blue-800",
-  no_show: "bg-gray-100 text-gray-800",
+  booked: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  confirmed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  completed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  no_show: "bg-gray-100 text-gray-800 dark:bg-gray-800/30 dark:text-gray-300",
 };
 
 export default function AdminDashboardPage() {
@@ -43,7 +44,7 @@ export default function AdminDashboardPage() {
 
   const fetchAppointments = useCallback(async () => {
     try {
-      const res = await fetch("/api/appointments");
+      const res = await adminFetch("/api/appointments");
       const data = await res.json();
       setAppointments(data.appointments || []);
     } catch {
@@ -74,9 +75,9 @@ export default function AdminDashboardPage() {
   async function handleAction() {
     if (!confirmAction) return;
     if (confirmAction.type === "cancel") {
-      await fetch(`/api/appointments/${confirmAction.apt.id}`, { method: "DELETE" });
+      await adminFetch(`/api/appointments/${confirmAction.apt.id}`, { method: "DELETE" });
     } else {
-      await fetch(`/api/appointments/${confirmAction.apt.id}`, {
+      await adminFetch(`/api/appointments/${confirmAction.apt.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "confirmed" }),
@@ -108,7 +109,7 @@ export default function AdminDashboardPage() {
             <CardTitle className="text-sm text-muted-foreground">Confirmed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{confirmedToday}</div>
+            <div className="text-3xl font-bold text-green-600 dark:text-green-400">{confirmedToday}</div>
           </CardContent>
         </Card>
         <Card>
@@ -116,7 +117,7 @@ export default function AdminDashboardPage() {
             <CardTitle className="text-sm text-muted-foreground">Pending</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">{pendingToday}</div>
+            <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">{pendingToday}</div>
           </CardContent>
         </Card>
       </div>
@@ -149,7 +150,7 @@ export default function AdminDashboardPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 text-green-700 border-green-300 hover:bg-green-50"
+                        className="h-8 text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/30"
                         onClick={() => setConfirmAction({ type: "confirm", apt })}
                       >
                         <CheckCircle className="h-3.5 w-3.5 mr-1" /> Confirm
@@ -159,7 +160,7 @@ export default function AdminDashboardPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 text-red-700 border-red-300 hover:bg-red-50"
+                        className="h-8 text-red-700 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/30"
                         onClick={() => setConfirmAction({ type: "cancel", apt })}
                       >
                         <X className="h-3.5 w-3.5 mr-1" /> Cancel
@@ -199,7 +200,7 @@ export default function AdminDashboardPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 text-red-700 border-red-300 hover:bg-red-50"
+                        className="h-8 text-red-700 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/30"
                         onClick={() => setConfirmAction({ type: "cancel", apt })}
                       >
                         <X className="h-3.5 w-3.5" />

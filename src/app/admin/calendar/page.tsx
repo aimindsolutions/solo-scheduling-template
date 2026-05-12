@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Eye, Trash2, CheckCircle, X } from "lucide-react";
+import { adminFetch } from "@/lib/api-client";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
 
 interface AppointmentData {
@@ -28,11 +29,11 @@ interface AppointmentData {
 }
 
 const statusColor: Record<string, string> = {
-  booked: "bg-orange-100 text-orange-800",
-  confirmed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
-  completed: "bg-blue-100 text-blue-800",
-  no_show: "bg-gray-100 text-gray-800",
+  booked: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  confirmed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  completed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  no_show: "bg-gray-100 text-gray-800 dark:bg-gray-800/30 dark:text-gray-300",
 };
 
 const statusDot: Record<string, string> = {
@@ -58,7 +59,7 @@ export default function AdminCalendarPage() {
 
   const fetchAppointments = useCallback(async () => {
     try {
-      const res = await fetch("/api/appointments");
+      const res = await adminFetch("/api/appointments");
       const data = await res.json();
       setAppointments(data.appointments || []);
     } catch {
@@ -75,7 +76,7 @@ export default function AdminCalendarPage() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   async function handleStatusChange(aptId: string, newStatus: string) {
-    await fetch(`/api/appointments/${aptId}`, {
+    await adminFetch(`/api/appointments/${aptId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
@@ -86,7 +87,7 @@ export default function AdminCalendarPage() {
   }
 
   async function handleDelete(aptId: string) {
-    await fetch(`/api/appointments/${aptId}`, { method: "DELETE" });
+    await adminFetch(`/api/appointments/${aptId}`, { method: "DELETE" });
     setConfirmAction(null);
     setSelectedApt(null);
     await fetchAppointments();
@@ -369,7 +370,7 @@ export default function AdminCalendarPage() {
                     <button
                       key={apt.id}
                       onClick={() => setSelectedApt(apt)}
-                      className="w-full text-left text-xs p-1.5 rounded border flex items-center gap-1.5 hover:bg-accent transition-colors cursor-pointer"
+                      className="w-full text-left text-sm p-1.5 rounded border flex items-center gap-1.5 hover:bg-accent transition-colors cursor-pointer"
                     >
                       <div
                         className={`w-2 h-2 rounded-full shrink-0 ${statusDot[apt.status] || ""}`}

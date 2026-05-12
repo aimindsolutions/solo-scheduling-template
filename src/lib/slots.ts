@@ -14,7 +14,8 @@ const DAYS_OF_WEEK = [
 export function getAvailableSlots(
   date: Date,
   config: BusinessConfig,
-  existingAppointments: Appointment[]
+  existingAppointments: Appointment[],
+  now?: Date
 ): string[] {
   const dayName = DAYS_OF_WEEK[date.getDay()];
   const daySchedule = config.workingHours[dayName];
@@ -24,6 +25,7 @@ export function getAvailableSlots(
   const { start, end } = daySchedule;
   const duration = config.defaultDurationMinutes;
   const dayStart = startOfDay(date);
+  const currentTime = now || new Date();
 
   const workStart = parse(start, "HH:mm", dayStart);
   const workEnd = parse(end, "HH:mm", dayStart);
@@ -44,8 +46,10 @@ export function getAvailableSlots(
   const slots: string[] = [];
   let current = workStart;
 
-  while (isBefore(addMinutes(current, duration), workEnd) || addMinutes(current, duration).getTime() === workEnd.getTime()) {
+  while (!isAfter(addMinutes(current, duration), workEnd)) {
     const slotEnd = addMinutes(current, duration);
+
+    const isPast = isBefore(current, currentTime);
 
     const isBreak = breakSlots.some(
       (b) => isBefore(current, b.end) && isAfter(slotEnd, b.start)
@@ -55,7 +59,7 @@ export function getAvailableSlots(
       (b) => isBefore(current, b.end) && isAfter(slotEnd, b.start)
     );
 
-    if (!isBreak && !isBooked) {
+    if (!isPast && !isBreak && !isBooked) {
       slots.push(format(current, "HH:mm"));
     }
 

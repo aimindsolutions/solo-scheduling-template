@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
+import { verifyAdminAuth } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") || "";
   const limit = parseInt(searchParams.get("limit") || "50");
 
-  let query = adminDb.collection("clients").orderBy("createdAt", "desc").limit(limit);
+  const query = adminDb.collection("clients").orderBy("createdAt", "desc").limit(limit);
 
   const snapshot = await query.get();
 
@@ -33,6 +37,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const body = await request.json();
   const { firstName, lastName, phone, email, language } = body;
 

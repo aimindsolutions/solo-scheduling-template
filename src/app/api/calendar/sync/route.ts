@@ -71,6 +71,18 @@ export async function POST(request: NextRequest) {
 
       if (data.clientId) {
         try {
+          const clientDoc = await adminDb.collection("clients").doc(data.clientId).get();
+          if (clientDoc.exists) {
+            await adminDb.collection("clients").doc(data.clientId).update({
+              cancelledAppointments: (clientDoc.data()!.cancelledAppointments || 0) + 1,
+              updatedAt: Timestamp.now(),
+            });
+          }
+        } catch {}
+      }
+
+      if (data.clientId) {
+        try {
           await notifyClientOfCancellation({ clientId: data.clientId, dateTime: data.dateTime });
         } catch {}
       }

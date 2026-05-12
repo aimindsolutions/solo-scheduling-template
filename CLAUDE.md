@@ -41,16 +41,28 @@ Never import admin SDK in client components or vice versa.
 
 RESTful pattern under `src/app/api/`. Each route uses `adminDb` for Firestore access and returns `NextResponse.json()`. Timestamps are converted from Firestore `Timestamp` to ISO strings in all GET responses.
 
-Auth is per-route: Telegram webhook checks `x-telegram-bot-api-secret-token` header, cron checks `Authorization: Bearer {CRON_SECRET}`, admin API routes currently have no auth middleware.
+Auth is per-route: Telegram webhook checks `x-telegram-bot-api-secret-token` header, cron and telegram setup check `Authorization: Bearer {CRON_SECRET}`, admin API routes currently have no auth middleware (known gap).
+
+### Magic login
+
+Owner can access admin panel directly from Telegram without password. Flow: `/start` in bot → generates one-time token in `magicTokens` Firestore collection (5-min expiry) → inline button links to `/admin/login?token={token}` → login page exchanges token for Firebase custom token via `/api/auth/magic-token` → auto-signs in.
+
+### Mobile responsive
+
+Admin uses hamburger menu with slide-out drawer on mobile (`<md` breakpoint). Desktop keeps fixed sidebar. Calendar grid adapts: 2→4→7 columns. Clients page shows card list on mobile, table on desktop.
 
 ### Telegram bot flow
 
-Webhook at `POST /api/telegram/webhook` dispatches to `src/lib/telegram/handlers.ts`. Two main flows:
+Webhook at `POST /api/telegram/webhook` dispatches to `src/lib/telegram/handlers.ts`. Main flows:
 
 1. **Confirmation flow** — Client books via web → gets link to bot → `/start {appointmentId}` deep link → Confirm/Cancel inline buttons → updates Firestore + Calendar.
-2. **Booking flow** — `/book` command → state machine stored in `bookingSessions` Firestore collection (awaiting_name → awaiting_phone → awaiting_date → awaiting_time) → creates appointment directly.
+2. **Booking flow** — `/book` command → state machine stored in `bookingSessions` Firestore collection (awaiting_name → awaiting_phone → awaiting_date → awaiting_time) → creates appointment directly. Returning users (matched by `telegramChatId`) skip name/phone steps.
+3. **Client commands** — `/my_appointments` (list upcoming), `/cancel` (cancel menu with inline buttons).
+4. **Owner commands** — `/today` (day overview with times, names, phones, notes), `/admin_cancel` (cancel any upcoming appointment, notifies client). Owner is identified by `ownerTelegramChatId` in `businessConfig/main`.
 
-All bot messages are localized via `src/lib/telegram/messages.ts`.
+Bot menu commands are registered in Ukrainian via `setMyCommands` API. Setup endpoint: `POST /api/telegram/setup` (requires `CRON_SECRET` auth).
+
+All bot messages are localized via `src/lib/telegram/messages.ts`. Cancel notifications: `src/lib/telegram/notifications.ts` handles bidirectional notifications (owner→client, client→owner).
 
 ### Google Calendar sync
 
@@ -74,8 +86,15 @@ Vercel cron hits `GET /api/cron/reminders` every 10 minutes. Queries for confirm
 - `clients/{id}` — name, phone (required), consent metadata, appointment counters (total/confirmed/cancelled/noShow)
 - `appointments/{id}` — clientId, dateTime, status, source, googleCalendarEventId, reminder flags
 - `bookingSessions/{chatId}` — temporary Telegram booking state (auto-deleted on completion)
+- `magicTokens/{token}` — one-time login tokens for owner Telegram→admin access (5-min expiry)
 
 Appointment statuses: `booked` → `confirmed` → `completed` | `cancelled` | `no_show`.
+
+### Known issues
+
+- Client counters (`cancelledAppointments`, `noShowAppointments`) not updated in all paths: owner_cancel callback, admin DELETE, admin PATCH for completed/no_show.
+- Dark mode CSS is configured but no UI toggle exists.
+- Success page uses wrong translation key `t("title")`.
 
 ## Next.js 16 notice
 

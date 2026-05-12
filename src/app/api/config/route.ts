@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
+import { verifyAdminAuth } from "@/lib/api-auth";
 
 export async function GET() {
   const doc = await adminDb.collection("businessConfig").doc("main").get();
@@ -12,6 +13,9 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const body = await request.json();
   const {
     businessName,

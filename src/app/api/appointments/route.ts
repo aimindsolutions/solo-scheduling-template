@@ -4,6 +4,9 @@ import { createCalendarEvent } from "@/lib/calendar/google";
 import { bookingFormSchema } from "@/lib/validators";
 import { Timestamp } from "firebase-admin/firestore";
 import { parseInTimeZone } from "@/lib/date-utils";
+import { getAvailableSlots } from "@/lib/slots";
+import { parse, startOfDay, endOfDay } from "date-fns";
+import type { BusinessConfig, Appointment } from "@/types";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -32,6 +35,31 @@ export async function POST(request: NextRequest) {
   const serviceName = config.serviceName || "Appointment";
 
   const dateTime = parseInTimeZone(`${date} ${time}`, config.timezone || "Europe/Kyiv");
+
+  const bookingDate = parse(date, "yyyy-MM-dd", new Date());
+  const dayStart = startOfDay(bookingDate);
+  const dayEnd = endOfDay(bookingDate);
+
+  const existingSnap = await adminDb
+    .collection("appointments")
+    .where("dateTime", ">=", dayStart)
+    .where("dateTime", "<=", dayEnd)
+    .get();
+
+  const existingAppointments = existingSnap.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+    dateTime: doc.data().dateTime.toDate(),
+  })) as Appointment[];
+
+  const availableSlots = getAvailableSlots(bookingDate, config as BusinessConfig, existingAppointments, new Date());
+
+  if (!availableSlots.includes(time)) {
+    return NextResponse.json(
+      { error: "Selected time slot is not available" },
+      { status: 409 }
+    );
+  }
 
   let clientId: string;
   const clientQuery = await adminDb
@@ -104,6 +132,15 @@ export async function POST(request: NextRequest) {
       totalAppointments: (clientQuery.empty ? 0 : clientQuery.docs[0].data().totalAppointments || 0) + 1,
       updatedAt: Timestamp.now(),
     });
+
+  try {
+    const { notifyOwnerOfNewBooking } = await import("@/lib/telegram/notifications");
+    await notifyOwnerOfNewBooking({
+      clientName: `${firstName}${lastName ? " " + lastName : ""}`,
+      dateTime: Timestamp.fromDate(dateTime),
+      phone,
+    });
+  } catch {}
 
   return NextResponse.json({
     appointmentId: appointmentRef.id,

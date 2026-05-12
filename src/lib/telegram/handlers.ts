@@ -3,7 +3,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { sendMessage, sendDocument, answerCallbackQuery, buildInlineKeyboard, buildReplyKeyboard } from "./bot";
 import { confirmationMessage, confirmedMessage, cancelledMessage, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, consentMessage } from "./messages";
 import { confirmCalendarEvent, deleteCalendarEvent, createCalendarEvent } from "@/lib/calendar/google";
-import { notifyOwnerOfCancellation } from "./notifications";
+import { notifyOwnerOfCancellation, notifyOwnerOfConfirmation } from "./notifications";
 import { generateIcsFile, generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
 import { getAvailableSlots, getDaysWithAvailability } from "@/lib/slots";
 import { parse, format } from "date-fns";
@@ -88,6 +88,10 @@ async function handleCallbackQuery(query: {
 
     await sendMessage(chatId, confirmedMessage(lang));
     await sendCalendarLinks(chatId, appointment, lang);
+    await notifyOwnerOfConfirmation({
+      clientName: appointment.clientName,
+      dateTime: appointment.dateTime,
+    });
   }
 
   if (action === "cancel" && appointmentId) {
@@ -158,6 +162,18 @@ async function handleCallbackQuery(query: {
 
     if (apt.googleCalendarEventId) {
       try { await deleteCalendarEvent(apt.googleCalendarEventId); } catch {}
+    }
+
+    if (apt.clientId) {
+      try {
+        const clientDoc = await adminDb.collection("clients").doc(apt.clientId).get();
+        if (clientDoc.exists) {
+          await adminDb.collection("clients").doc(apt.clientId).update({
+            cancelledAppointments: (clientDoc.data()!.cancelledAppointments || 0) + 1,
+            updatedAt: Timestamp.now(),
+          });
+        }
+      } catch {}
     }
 
     if (apt.clientId) {
@@ -426,7 +442,7 @@ async function handleDateSelection(chatId: number, dateStr: string, lang: string
     dateTime: doc.data().dateTime.toDate(),
   })) as Appointment[];
 
-  const slots = getAvailableSlots(date, config, appointments);
+  const slots = getAvailableSlots(date, config, appointments, new Date());
 
   if (slots.length === 0) {
     const availableDates = getDaysWithAvailability(new Date(), 14, config);

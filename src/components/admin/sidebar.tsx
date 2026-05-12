@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Users, LayoutDashboard, Settings, LogOut, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import type { User } from "firebase/auth";
 
 const navItems = [
@@ -64,7 +65,11 @@ export function AdminSidebar({ user }: { user: User | null }) {
 
       <Separator />
 
-      <div className="p-2">
+      <div className="p-2 space-y-1">
+        <div className="flex items-center gap-2 px-3 py-1">
+          <ThemeToggle />
+          <span className="text-sm text-muted-foreground">Theme</span>
+        </div>
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-destructive"

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { adminFetch } from "@/lib/api-client";
 
 const DAYS = [
   "monday",
@@ -34,7 +35,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     async function fetchConfig() {
       try {
-        const res = await fetch("/api/config");
+        const res = await adminFetch("/api/config");
         const data = await res.json();
         if (data.config) {
           setBusinessName(data.config.businessName || "");
@@ -70,7 +71,7 @@ export default function AdminSettingsPage() {
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/config", {
+      const res = await adminFetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -191,7 +192,7 @@ export default function AdminSettingsPage() {
       </Card>
 
       {message && (
-        <p className={`text-sm ${message.includes("Failed") ? "text-destructive" : "text-green-600"}`}>
+        <p className={`text-sm ${message.includes("Failed") ? "text-destructive" : "text-green-600 dark:text-green-400"}`}>
           {message}
         </p>
       )}

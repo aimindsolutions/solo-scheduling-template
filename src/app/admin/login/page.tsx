@@ -23,7 +23,11 @@ export default function AdminLoginPage() {
     if (!token) return;
 
     setMagicLoading(true);
-    fetch(`/api/auth/magic-token?token=${token}`)
+    fetch(`/api/auth/magic-token`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      })
       .then((res) => res.json())
       .then(async (data) => {
         if (data.customToken) {

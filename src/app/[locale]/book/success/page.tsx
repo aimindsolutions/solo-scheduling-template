@@ -66,7 +66,7 @@ export default function BookingSuccessPage() {
 
             <Link href="/" className="block">
               <Button variant="ghost" className="w-full">
-                ← {t("title")}
+                ← {t("backToHome")}
               </Button>
             </Link>
           </CardContent>

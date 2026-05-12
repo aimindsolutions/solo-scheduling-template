@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
+import { verifyAdminAuth } from "@/lib/api-auth";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const { id } = await params;
   const doc = await adminDb.collection("clients").doc(id).get();
 
@@ -29,6 +33,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const { id } = await params;
   const body = await request.json();
 
@@ -52,9 +59,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await verifyAdminAuth(request);
+  if (authError) return authError;
+
   const { id } = await params;
   const doc = await adminDb.collection("clients").doc(id).get();
   if (!doc.exists) {

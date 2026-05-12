@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { Pencil, Trash2, Save, X } from "lucide-react";
+import { adminFetch } from "@/lib/api-client";
 
 interface ClientDetail {
   id: string;
@@ -42,11 +43,11 @@ interface AppointmentData {
 }
 
 const statusColor: Record<string, string> = {
-  booked: "bg-orange-100 text-orange-800",
-  confirmed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
-  completed: "bg-blue-100 text-blue-800",
-  no_show: "bg-gray-100 text-gray-800",
+  booked: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  confirmed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  completed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  no_show: "bg-gray-100 text-gray-800 dark:bg-gray-800/30 dark:text-gray-300",
 };
 
 export default function ClientDetailPage() {
@@ -69,8 +70,8 @@ export default function ClientDetailPage() {
   const fetchData = useCallback(async () => {
     try {
       const [clientRes, aptsRes] = await Promise.all([
-        fetch(`/api/clients/${clientId}`),
-        fetch(`/api/appointments?clientId=${clientId}`),
+        adminFetch(`/api/clients/${clientId}`),
+        adminFetch(`/api/appointments?clientId=${clientId}`),
       ]);
       const clientData = await clientRes.json();
       const aptsData = await aptsRes.json();
@@ -94,7 +95,7 @@ export default function ClientDetailPage() {
 
   async function handleSave() {
     setSaving(true);
-    await fetch(`/api/clients/${clientId}`, {
+    await adminFetch(`/api/clients/${clientId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editForm),
@@ -105,7 +106,7 @@ export default function ClientDetailPage() {
   }
 
   async function handleDelete() {
-    await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
+    await adminFetch(`/api/clients/${clientId}`, { method: "DELETE" });
     router.push("/admin/clients");
   }
 
@@ -127,7 +128,7 @@ export default function ClientDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            className="text-red-700 border-red-300 hover:bg-red-50"
+            className="text-red-700 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/30"
             onClick={() => setShowDelete(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" /> Delete
@@ -242,19 +243,19 @@ export default function ClientDetailPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">Confirmed</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {client.confirmedAppointments || 0}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">Cancelled</p>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                   {client.cancelledAppointments || 0}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">No-show</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {client.noShowAppointments || 0}
                 </p>
               </div>

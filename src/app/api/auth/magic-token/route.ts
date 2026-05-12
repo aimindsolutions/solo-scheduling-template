@@ -31,8 +31,9 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ token });
 }
 
-export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get("token");
+export async function PUT(request: NextRequest) {
+  const body = await request.json();
+  const token = body.token;
   if (!token) {
     return NextResponse.json({ error: "Missing token" }, { status: 400 });
   }

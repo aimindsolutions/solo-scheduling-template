@@ -130,3 +130,24 @@ export function ownerCancelledNotifyClient(
     `📅 ${data.serviceName}\n📆 ${dateStr}\n\n` +
     "We apologize for the inconvenience. Please reschedule:\n/book";
 }
+
+export function clientConfirmedNotifyOwner(
+  data: { clientName: string; date: Date; serviceName: string }
+) {
+  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", { locale: uk });
+  return `✅ Клієнт <b>${data.clientName}</b> підтвердив запис\n📅 ${data.serviceName}\n📆 ${dateStr}`;
+}
+
+export function ownerConfirmedNotifyClient(
+  lang: string,
+  data: { date: Date; serviceName: string }
+) {
+  const dateStr = format(data.date, "d MMMM yyyy, HH:mm", {
+    locale: getLocale(lang),
+  });
+
+  if (lang === "uk") {
+    return `✅ Ваш запис підтверджено!\n📅 ${data.serviceName}\n📆 ${dateStr}\n\nЧекаємо на вас!`;
+  }
+  return `✅ Your appointment has been confirmed!\n📅 ${data.serviceName}\n📆 ${dateStr}\n\nSee you there!`;
+}

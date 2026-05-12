@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search } from "lucide-react";
+import { adminFetch } from "@/lib/api-client";
 
 interface ClientData {
   id: string;
@@ -49,7 +50,7 @@ export default function AdminClientsPage() {
   useEffect(() => {
     async function fetchClients() {
       try {
-        const res = await fetch(`/api/clients?search=${search}`);
+        const res = await adminFetch(`/api/clients?search=${search}`);
         const data = await res.json();
         setClients(data.clients || []);
       } catch {

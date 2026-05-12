@@ -46,7 +46,8 @@
       "openTelegram": "Відкрити Telegram бот",
       "addToCalendar": "Додати в календар",
       "googleCalendar": "Google Calendar",
-      "downloadIcs": "Завантажити .ics файл"
+      "downloadIcs": "Завантажити .ics файл",
+      "backToHome": "На головну"
     }
   },
   "validation": {

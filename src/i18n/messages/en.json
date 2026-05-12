@@ -46,7 +46,8 @@
       "openTelegram": "Open Telegram Bot",
       "addToCalendar": "Add to Calendar",
       "googleCalendar": "Google Calendar",
-      "downloadIcs": "Download .ics file"
+      "downloadIcs": "Download .ics file",
+      "backToHome": "Back to Home"
     }
   },
   "validation": {

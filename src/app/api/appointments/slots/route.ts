@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     dateTime: doc.data().dateTime.toDate(),
   })) as Appointment[];
 
-  const slots = getAvailableSlots(date, config, appointments);
+  const slots = getAvailableSlots(date, config, appointments, new Date());
 
   return NextResponse.json({ slots });
 }

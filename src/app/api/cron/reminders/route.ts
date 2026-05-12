@@ -10,7 +10,7 @@ import { startOfDay, endOfDay, addDays } from "date-fns";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -34,10 +34,15 @@ export async function GET(request: NextRequest) {
     .where("dateTime", "<=", Timestamp.fromDate(reminder24End))
     .get();
 
+  const clientIds24 = [...new Set(snap24.docs.map(d => d.data().clientId).filter(Boolean))];
+  const clientDocs24 = clientIds24.length > 0
+    ? await adminDb.getAll(...clientIds24.map(id => adminDb.collection("clients").doc(id)))
+    : [];
+  const clientMap24 = new Map(clientDocs24.filter(d => d.exists).map(d => [d.id, d.data()!]));
+
   for (const doc of snap24.docs) {
     const apt = doc.data();
-    const client = await adminDb.collection("clients").doc(apt.clientId).get();
-    const clientData = client.data();
+    const clientData = clientMap24.get(apt.clientId);
 
     if (clientData?.telegramChatId) {
       const lang = clientData.language || "uk";
@@ -49,16 +54,18 @@ export async function GET(request: NextRequest) {
         durationMinutes: apt.durationMinutes,
       });
 
-      await sendMessage(
-        clientData.telegramChatId,
-        reminderMessage(lang, { date: appointmentDate, serviceName, hoursLeft: 24 }),
-        {
-          replyMarkup: buildInlineKeyboard([
-            [{ text: "📅 Google Calendar", url: googleUrl }],
-            [{ text: "❌ " + (lang === "uk" ? "Скасувати" : "Cancel"), callbackData: `cancel:${doc.id}` }],
-          ]),
-        }
-      );
+      try {
+        await sendMessage(
+          clientData.telegramChatId,
+          reminderMessage(lang, { date: appointmentDate, serviceName, hoursLeft: 24 }),
+          {
+            replyMarkup: buildInlineKeyboard([
+              [{ text: "📅 Google Calendar", url: googleUrl }],
+              [{ text: "❌ " + (lang === "uk" ? "Скасувати" : "Cancel"), callbackData: `cancel:${doc.id}` }],
+            ]),
+          }
+        );
+      } catch {}
 
       await adminDb.collection("appointments").doc(doc.id).update({
         reminder24hSent: true,
@@ -79,24 +86,31 @@ export async function GET(request: NextRequest) {
     .where("dateTime", "<=", Timestamp.fromDate(reminder2End))
     .get();
 
+  const clientIds2 = [...new Set(snap2.docs.map(d => d.data().clientId).filter(Boolean))];
+  const clientDocs2 = clientIds2.length > 0
+    ? await adminDb.getAll(...clientIds2.map(id => adminDb.collection("clients").doc(id)))
+    : [];
+  const clientMap2 = new Map(clientDocs2.filter(d => d.exists).map(d => [d.id, d.data()!]));
+
   for (const doc of snap2.docs) {
     const apt = doc.data();
-    const client = await adminDb.collection("clients").doc(apt.clientId).get();
-    const clientData = client.data();
+    const clientData = clientMap2.get(apt.clientId);
 
     if (clientData?.telegramChatId) {
       const lang = clientData.language || "uk";
       const appointmentDate = apt.dateTime.toDate();
 
-      await sendMessage(
-        clientData.telegramChatId,
-        reminderMessage(lang, { date: appointmentDate, serviceName, hoursLeft: 2 }),
-        {
-          replyMarkup: buildInlineKeyboard([
-            [{ text: "❌ " + (lang === "uk" ? "Скасувати" : "Cancel"), callbackData: `cancel:${doc.id}` }],
-          ]),
-        }
-      );
+      try {
+        await sendMessage(
+          clientData.telegramChatId,
+          reminderMessage(lang, { date: appointmentDate, serviceName, hoursLeft: 2 }),
+          {
+            replyMarkup: buildInlineKeyboard([
+              [{ text: "❌ " + (lang === "uk" ? "Скасувати" : "Cancel"), callbackData: `cancel:${doc.id}` }],
+            ]),
+          }
+        );
+      } catch {}
 
       await adminDb.collection("appointments").doc(doc.id).update({
         reminder2hSent: true,
