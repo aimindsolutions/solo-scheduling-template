@@ -122,10 +122,9 @@ export async function setupBotCommands(ownerChatId?: string) {
     await setMyCommands(
       [
         { command: "today", description: "Записи на сьогодні" },
+        { command: "week", description: "Записи на тиждень" },
         { command: "admin_cancel", description: "Скасувати запис клієнта" },
-        { command: "book", description: "Записатися на прийом" },
-        { command: "my_appointments", description: "Мої записи" },
-        { command: "cancel", description: "Скасувати запис" },
+        { command: "admin", description: "Адмін-панель" },
       ],
       { type: "chat", chat_id: Number(ownerChatId) }
     );

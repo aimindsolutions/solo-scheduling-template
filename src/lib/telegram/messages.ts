@@ -108,15 +108,21 @@ export function bookingConfirmedMessage(
 
 export function confirmBookingPrompt(
   lang: string,
-  data: { date: Date; serviceName: string; timezone?: string }
+  data: { date: Date; serviceName: string; timezone?: string; isNewClient?: boolean }
 ) {
   const tz = data.timezone || "Europe/Kyiv";
   const dateStr = fmtDate(data.date, tz, lang);
 
   if (lang === "uk") {
-    return `📋 <b>Підтвердження запису:</b>\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\n💬 Можете додати коментар (просто напишіть текст) або натисніть кнопку для підтвердження:`;
+    const consent = data.isNewClient
+      ? "\n\n📋 Натискаючи «Підтвердити», ви погоджуєтесь, що ваше ім'я, телефон та дані запису будуть збережені для управління візитами та нагадувань."
+      : "";
+    return `📋 <b>Підтвердження запису:</b>\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\n💬 Можете додати коментар (просто напишіть текст) або натисніть кнопку для підтвердження:${consent}`;
   }
-  return `📋 <b>Booking confirmation:</b>\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\n💬 You can add a comment (just type it) or press the button to confirm:`;
+  const consent = data.isNewClient
+    ? "\n\n📋 By pressing 'Confirm', you agree that your name, phone, and appointment data will be stored for managing visits and reminders."
+    : "";
+  return `📋 <b>Booking confirmation:</b>\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\n💬 You can add a comment (just type it) or press the button to confirm:${consent}`;
 }
 
 export function noSlotsMessage(lang: string) {

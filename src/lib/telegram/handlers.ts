@@ -1,7 +1,7 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { sendMessage, sendDocument, answerCallbackQuery, buildInlineKeyboard, buildReplyKeyboard } from "./bot";
-import { confirmationMessage, confirmedMessage, cancelledMessage, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, consentMessage, confirmBookingPrompt } from "./messages";
+import { confirmationMessage, confirmedMessage, cancelledMessage, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, confirmBookingPrompt } from "./messages";
 import { confirmCalendarEvent, deleteCalendarEvent, createCalendarEvent } from "@/lib/calendar/google";
 import { notifyOwnerOfCancellation, notifyOwnerOfConfirmation, notifyOwnerOfNewBooking } from "./notifications";
 import { generateIcsFile, generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
@@ -110,7 +110,12 @@ async function handleCallbackQuery(query: {
       });
     }
 
-    await sendMessage(chatId, confirmedMessage(lang));
+    const appUrlForClient = process.env.NEXT_PUBLIC_APP_URL || "";
+    await sendMessage(chatId, confirmedMessage(lang), {
+      replyMarkup: appUrlForClient ? buildInlineKeyboard([
+        [{ text: lang === "uk" ? "🌐 На сайт" : "🌐 Visit website", url: appUrlForClient }],
+      ]) : undefined,
+    });
     await sendCalendarLinks(chatId, appointment, lang);
     await notifyOwnerOfConfirmation({
       clientName: appointment.clientName,
@@ -346,10 +351,26 @@ async function handleMessage(message: {
     }
   }
 
+  if (text === "/week") {
+    const config = await getConfig();
+    if (config?.ownerTelegramChatId === String(chatId)) {
+      await showOwnerWeekOverview(chatId);
+      return;
+    }
+  }
+
   if (text === "/admin_cancel") {
     const config = await getConfig();
     if (config?.ownerTelegramChatId === String(chatId)) {
       await showOwnerCancelMenu(chatId);
+      return;
+    }
+  }
+
+  if (text === "/admin") {
+    const config = await getConfig();
+    if (config?.ownerTelegramChatId === String(chatId)) {
+      await sendOwnerAdminLink(chatId);
       return;
     }
   }
@@ -436,10 +457,10 @@ async function startBookingFlow(
     phone: "",
     chatId,
     lang,
+    isNewClient: true,
     createdAt: Timestamp.now(),
   });
 
-  await sendMessage(chatId, consentMessage(lang));
   await sendMessage(chatId, bookingStartMessage(lang));
 }
 
@@ -532,7 +553,10 @@ async function handleTimeSelection(chatId: number, dateStr: string, timeStr: str
     notes: "",
   });
 
-  await sendMessage(chatId, confirmBookingPrompt(lang, { date: dateTime, serviceName, timezone: config.timezone }), {
+  const sessionData = sessionSnap.data()!;
+  const isNewClient = !!sessionData.isNewClient;
+
+  await sendMessage(chatId, confirmBookingPrompt(lang, { date: dateTime, serviceName, timezone: config.timezone, isNewClient }), {
     replyMarkup: buildInlineKeyboard([
       [
         { text: lang === "uk" ? "✅ Підтвердити" : "✅ Confirm", callbackData: "book_confirm" },
@@ -847,5 +871,79 @@ async function showOwnerCancelMenu(chatId: number) {
 
   await sendMessage(chatId, "Оберіть запис для скасування (клієнт буде повідомлений):", {
     replyMarkup: buildInlineKeyboard(buttons),
+  });
+}
+
+async function showOwnerWeekOverview(chatId: number) {
+  const config = await getConfig();
+  const tz = config?.timezone || "Europe/Kyiv";
+  const todayStr = nowInTimeZone(tz).date;
+
+  const weekStart = startOfDayInTimeZone(todayStr, tz);
+  const weekEndDate = new Date(weekStart);
+  weekEndDate.setDate(weekEndDate.getDate() + 7);
+
+  const snap = await adminDb
+    .collection("appointments")
+    .where("dateTime", ">=", weekStart)
+    .where("dateTime", "<", weekEndDate)
+    .orderBy("dateTime", "asc")
+    .get();
+
+  const active = snap.docs.filter((d) => d.data().status !== "cancelled");
+
+  if (active.length === 0) {
+    await sendMessage(chatId, "📋 Немає записів на найближчі 7 днів.");
+    return;
+  }
+
+  const byDay = new Map<string, string[]>();
+  for (const doc of active) {
+    const d = doc.data();
+    const dateObj = d.dateTime.toDate();
+    const dayDate = formatInTimeZone(dateObj, tz, "dd.MM.yyyy");
+    const dayName = new Intl.DateTimeFormat("uk-UA", { timeZone: tz, weekday: "long" }).format(dateObj);
+    const dayKey = `${dayDate} (${dayName})`;
+    const time = formatInTimeZone(dateObj, tz, "HH:mm");
+    const status = d.status === "confirmed" ? "✅" : "⏳";
+    const phone = d.clientPhone ? ` | ${d.clientPhone}` : "";
+    const notes = d.notes ? ` 💬${d.notes}` : "";
+    const line = `  ${status} <b>${time}</b> — ${d.clientName}${phone}${notes}`;
+    if (!byDay.has(dayKey)) byDay.set(dayKey, []);
+    byDay.get(dayKey)!.push(line);
+  }
+
+  const sections: string[] = [];
+  for (const [day, lines] of byDay) {
+    sections.push(`📅 <b>${day}</b>\n${lines.join("\n")}`);
+  }
+
+  await sendMessage(chatId, `📋 <b>Записи на 7 днів:</b>\n\n${sections.join("\n\n")}`);
+}
+
+async function sendOwnerAdminLink(chatId: number) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  if (!appUrl) {
+    await sendMessage(chatId, "⚠️ APP_URL не налаштований.");
+    return;
+  }
+
+  let adminUrl = `${appUrl}/admin`;
+  try {
+    const tokenRes = await fetch(`${appUrl}/api/auth/magic-token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId: String(chatId) }),
+    });
+    const tokenData = await tokenRes.json();
+    if (tokenData.token) {
+      adminUrl = `${appUrl}/admin/login?token=${tokenData.token}`;
+    }
+  } catch {}
+
+  await sendMessage(chatId, "🔗 Посилання дійсне 5 хвилин:", {
+    replyMarkup: buildInlineKeyboard([
+      [{ text: "📋 Адмін-панель", url: adminUrl }],
+    ]),
   });
 }

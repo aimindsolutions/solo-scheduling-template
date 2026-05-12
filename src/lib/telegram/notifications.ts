@@ -1,5 +1,5 @@
 import { adminDb } from "@/lib/firebase/admin";
-import { sendMessage } from "./bot";
+import { sendMessage, buildInlineKeyboard } from "./bot";
 import { clientCancelledNotifyOwner, ownerCancelledNotifyClient, clientConfirmedNotifyOwner, ownerConfirmedNotifyClient } from "./messages";
 import { formatInTimeZone } from "@/lib/date-utils";
 
@@ -109,8 +109,14 @@ export async function notifyOwnerOfNewBooking(appointment: {
   const dateStr = formatInTimeZone(date, tz, "dd.MM.yyyy HH:mm");
   const notesLine = appointment.notes ? `\n💬 ${appointment.notes}` : "";
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  const buttons = appUrl
+    ? buildInlineKeyboard([[{ text: "📋 Адмін-панель", url: `${appUrl}/admin` }]])
+    : undefined;
+
   await sendMessage(
     config.ownerTelegramChatId,
-    `📬 Новий запис!\n👤 ${appointment.clientName}\n📱 ${appointment.phone}\n📅 ${serviceName}\n📆 ${dateStr}${notesLine}`
+    `📬 Новий запис!\n👤 ${appointment.clientName}\n📱 ${appointment.phone}\n📅 ${serviceName}\n📆 ${dateStr}${notesLine}`,
+    { replyMarkup: buttons }
   );
 }
