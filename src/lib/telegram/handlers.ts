@@ -747,15 +747,12 @@ async function showCancelMenu(chatId: number, lang: string) {
     .collection("appointments")
     .where("clientId", "==", (client as { id: string }).id)
     .where("dateTime", ">=", now)
-    .limit(10)
+    .where("status", "in", ["booked", "confirmed"])
+    .orderBy("dateTime", "asc")
+    .limit(5)
     .get();
 
-  const cancelable = snap.docs
-    .filter((d) => ["booked", "confirmed"].includes(d.data().status))
-    .sort((a, b) => a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime())
-    .slice(0, 5);
-
-  if (cancelable.length === 0) {
+  if (snap.empty) {
     await sendMessage(chatId, lang === "uk" ? "У вас немає майбутніх записів для скасування." : "You have no upcoming appointments to cancel.");
     return;
   }
@@ -763,7 +760,7 @@ async function showCancelMenu(chatId: number, lang: string) {
   const config = await getConfig();
   const tz = config?.timezone || "Europe/Kyiv";
 
-  const buttons = cancelable.map((doc) => {
+  const buttons = snap.docs.map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
     return [{ text: `❌ ${dateStr}`, callbackData: `cancel_apt:${doc.id}` }];
@@ -791,20 +788,17 @@ async function showMyAppointments(chatId: number, lang: string) {
     .collection("appointments")
     .where("clientId", "==", (client as { id: string }).id)
     .where("dateTime", ">=", now)
-    .limit(10)
+    .where("status", "in", ["booked", "confirmed"])
+    .orderBy("dateTime", "asc")
+    .limit(5)
     .get();
 
-  const upcoming = snap.docs
-    .filter((d) => ["booked", "confirmed"].includes(d.data().status))
-    .sort((a, b) => a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime())
-    .slice(0, 5);
-
-  if (upcoming.length === 0) {
+  if (snap.empty) {
     await sendMessage(chatId, lang === "uk" ? "У вас немає майбутніх записів." : "You have no upcoming appointments.");
     return;
   }
 
-  const lines = upcoming.map((doc) => {
+  const lines = snap.docs.map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
     const status = d.status === "confirmed" ? "✅" : "⏳";
