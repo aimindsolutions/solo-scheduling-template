@@ -70,7 +70,7 @@ Service account auth via `googleapis` JWT. Color coding: orange (colorId "6") = 
 
 ### Slot calculation
 
-`src/lib/slots.ts` — `getAvailableSlots(date, config, existingAppointments)` computes free time slots from working hours minus existing bookings and break slots. Used by both the web API (`/api/appointments/slots`) and Telegram bot handlers.
+`src/lib/slots.ts` — `getAvailableSlots(date, config, existingAppointments, now?)` computes free time slots from working hours minus existing bookings, break slots, and past times. The optional `now` parameter filters out slots that have already passed today. Used by the web API (`/api/appointments/slots`), Telegram bot handlers, and booking POST validation.
 
 ### Client calendar links
 
@@ -92,8 +92,10 @@ Appointment statuses: `booked` → `confirmed` → `completed` | `cancelled` | `
 
 ### Known issues
 
-- Dark mode CSS is configured but no UI toggle exists.
-- Success page uses wrong translation key `t("title")`.
+- Booking form inputs not disabled during submission (allows double-submit).
+- Root `<html>` element missing `lang` attribute.
+- Slot booking has no transaction lock — concurrent requests could double-book.
+- `verifyAdminAuth` accepts any valid Firebase user, not just the owner.
 
 ## Next.js 16 notice
 
