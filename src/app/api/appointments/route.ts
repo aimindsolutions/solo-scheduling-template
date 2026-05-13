@@ -164,14 +164,24 @@ export async function GET(request: NextRequest) {
   const authError = await verifyAdminAuth(request);
   if (authError) return authError;
 
+  const { searchParams } = new URL(request.url);
+  const cursorId = searchParams.get("cursor");
+  const pageSize = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
+
   const configSnap = await adminDb.collection("businessConfig").doc("main").get();
   const tz = configSnap.exists ? configSnap.data()!.timezone || "Europe/Kyiv" : "Europe/Kyiv";
 
-  const snapshot = await adminDb
+  let query = adminDb
     .collection("appointments")
     .orderBy("dateTime", "asc")
-    .limit(100)
-    .get();
+    .limit(pageSize);
+
+  if (cursorId) {
+    const cursorDoc = await adminDb.collection("appointments").doc(cursorId).get();
+    if (cursorDoc.exists) query = query.startAfter(cursorDoc);
+  }
+
+  const snapshot = await query.get();
 
   const appointments = snapshot.docs.map((doc) => ({
     id: doc.id,
@@ -181,5 +191,9 @@ export async function GET(request: NextRequest) {
     updatedAt: doc.data().updatedAt?.toDate().toISOString(),
   }));
 
-  return NextResponse.json({ appointments, timezone: tz });
+  const nextCursor = snapshot.size === pageSize
+    ? snapshot.docs[snapshot.docs.length - 1].id
+    : null;
+
+  return NextResponse.json({ appointments, nextCursor, timezone: tz });
 }

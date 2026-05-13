@@ -38,6 +38,8 @@ export default function AdminDashboardPage() {
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [timezone, setTimezone] = useState("Europe/Kyiv");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [selectedApt, setSelectedApt] = useState<AppointmentData | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     type: "confirm" | "complete" | "no_show";
@@ -49,6 +51,7 @@ export default function AdminDashboardPage() {
       const res = await adminFetch("/api/appointments");
       const data = await res.json();
       setAppointments(data.appointments || []);
+      setNextCursor(data.nextCursor ?? null);
       if (data.timezone) setTimezone(data.timezone);
     } catch {
       setAppointments([]);
@@ -56,6 +59,21 @@ export default function AdminDashboardPage() {
       setLoading(false);
     }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const res = await adminFetch(`/api/appointments?cursor=${nextCursor}`);
+      const data = await res.json();
+      setAppointments((prev) => [...prev, ...(data.appointments || [])]);
+      setNextCursor(data.nextCursor ?? null);
+    } catch {
+      // keep existing data
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextCursor]);
 
   useEffect(() => {
     fetchAppointments();
@@ -300,6 +318,14 @@ export default function AdminDashboardPage() {
             )}
           </DialogContent>
         </Dialog>
+      )}
+
+      {nextCursor && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? "Loading…" : "Load more appointments"}
+          </Button>
+        </div>
       )}
 
       {confirmAction && (

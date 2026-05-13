@@ -849,16 +849,13 @@ async function showOwnerCancelMenu(chatId: number) {
   const now = new Date();
   const snap = await adminDb
     .collection("appointments")
+    .where("status", "in", ["booked", "confirmed"])
     .where("dateTime", ">=", now)
-    .limit(20)
+    .orderBy("dateTime", "asc")
+    .limit(10)
     .get();
 
-  const active = snap.docs
-    .filter((d) => ["booked", "confirmed"].includes(d.data().status))
-    .sort((a, b) => a.data().dateTime.toDate().getTime() - b.data().dateTime.toDate().getTime())
-    .slice(0, 10);
-
-  if (active.length === 0) {
+  if (snap.empty) {
     await sendMessage(chatId, "Немає майбутніх записів для скасування.");
     return;
   }
@@ -866,9 +863,7 @@ async function showOwnerCancelMenu(chatId: number) {
   const config = await getConfig();
   const tz = config?.timezone || "Europe/Kyiv";
 
-  const sorted = active;
-
-  const buttons = sorted.map((doc) => {
+  const buttons = snap.docs.map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM HH:mm");
     return [{ text: `❌ ${dateStr} — ${d.clientName}`, callbackData: `owner_cancel:${doc.id}` }];

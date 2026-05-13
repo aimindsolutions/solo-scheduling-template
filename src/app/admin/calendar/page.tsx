@@ -61,10 +61,17 @@ export default function AdminCalendarPage() {
 
   const fetchAppointments = useCallback(async () => {
     try {
-      const res = await adminFetch("/api/appointments");
-      const data = await res.json();
-      setAppointments(data.appointments || []);
-      if (data.timezone) setTimezone(data.timezone);
+      const all: AppointmentData[] = [];
+      let cursor: string | null = null;
+      do {
+        const url = cursor ? `/api/appointments?cursor=${cursor}` : "/api/appointments";
+        const res = await adminFetch(url);
+        const data = await res.json();
+        all.push(...(data.appointments || []));
+        if (data.timezone) setTimezone(data.timezone);
+        cursor = data.nextCursor ?? null;
+      } while (cursor);
+      setAppointments(all);
     } catch {
       setAppointments([]);
     } finally {

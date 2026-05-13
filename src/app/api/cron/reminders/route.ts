@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   const snap24 = await adminDb
     .collection("appointments")
-    .where("status", "==", "confirmed")
+    .where("status", "in", ["booked", "confirmed"])
     .where("reminder24hSent", "==", false)
     .where("dateTime", ">=", Timestamp.fromDate(reminder24Start))
     .where("dateTime", "<=", Timestamp.fromDate(reminder24End))
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
 
   for (const doc of snap24.docs) {
     const apt = doc.data();
+    if (apt.status === "cancelled") continue;
     const clientData = clientMap24.get(apt.clientId);
 
     if (clientData?.telegramChatId) {
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
 
   const snap2 = await adminDb
     .collection("appointments")
-    .where("status", "==", "confirmed")
+    .where("status", "in", ["booked", "confirmed"])
     .where("reminder2hSent", "==", false)
     .where("dateTime", ">=", Timestamp.fromDate(reminder2Start))
     .where("dateTime", "<=", Timestamp.fromDate(reminder2End))
@@ -95,6 +96,7 @@ export async function GET(request: NextRequest) {
 
   for (const doc of snap2.docs) {
     const apt = doc.data();
+    if (apt.status === "cancelled") continue;
     const clientData = clientMap2.get(apt.clientId);
 
     if (clientData?.telegramChatId) {
@@ -154,5 +156,19 @@ export async function GET(request: NextRequest) {
     }
   } catch {}
 
-  return NextResponse.json({ sent24h, sent2h, calendarCancelled });
+  // Clean up abandoned booking sessions older than 2 hours
+  let sessionsDeleted = 0;
+  try {
+    const sessionCutoff = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const staleSnap = await adminDb
+      .collection("bookingSessions")
+      .where("createdAt", "<=", Timestamp.fromDate(sessionCutoff))
+      .get();
+    const batch = adminDb.batch();
+    staleSnap.docs.forEach((doc) => batch.delete(doc.ref));
+    if (staleSnap.size > 0) await batch.commit();
+    sessionsDeleted = staleSnap.size;
+  } catch {}
+
+  return NextResponse.json({ sent24h, sent2h, calendarCancelled, sessionsDeleted });
 }
