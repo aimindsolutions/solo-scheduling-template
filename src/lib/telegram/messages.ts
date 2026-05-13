@@ -125,6 +125,18 @@ export function confirmBookingPrompt(
   return `📋 <b>Booking confirmation:</b>\n\n📅 ${data.serviceName}\n📆 ${dateStr}\n\n💬 You can add a comment (just type it) or press the button to confirm:${consent}`;
 }
 
+export function cancelConfirmPrompt(lang: string, dateStr: string) {
+  if (lang === "uk") {
+    return `❓ Скасувати запис на <b>${dateStr}</b>?\n\nМожете додати причину або підтвердити без неї.`;
+  }
+  return `❓ Cancel appointment on <b>${dateStr}</b>?\n\nYou can add a reason or confirm without one.`;
+}
+
+export function cancelReasonPrompt(lang: string) {
+  if (lang === "uk") return "✏️ Введіть причину скасування:";
+  return "✏️ Enter the reason for cancellation:";
+}
+
 export function noSlotsMessage(lang: string) {
   if (lang === "uk") return "На жаль, немає вільних слотів на цю дату. Оберіть іншу:";
   return "Sorry, no available slots for this date. Pick another:";

@@ -1,9 +1,9 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { sendMessage, sendDocument, answerCallbackQuery, buildInlineKeyboard, buildReplyKeyboard } from "./bot";
-import { confirmationMessage, confirmedMessage, cancelledMessage, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, confirmBookingPrompt } from "./messages";
+import { confirmationMessage, confirmedMessage, cancelledMessage, cancelConfirmPrompt, cancelReasonPrompt, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, confirmBookingPrompt } from "./messages";
 import { confirmCalendarEvent, deleteCalendarEvent, createCalendarEvent } from "@/lib/calendar/google";
-import { notifyOwnerOfCancellation, notifyOwnerOfConfirmation, notifyOwnerOfNewBooking } from "./notifications";
+import { notifyOwnerOfCancellation, notifyOwnerOfConfirmation, notifyOwnerOfNewBooking, notifyClientOfCancellation } from "./notifications";
 import { generateIcsFile, generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
 import { getAvailableSlots, getDaysWithAvailability, getNowLocalForSlots } from "@/lib/slots";
 import { parse, format, startOfDay, endOfDay } from "date-fns";
@@ -123,94 +123,71 @@ async function handleCallbackQuery(query: {
     });
   }
 
-  if (action === "cancel" && appointmentId) {
+  if ((action === "cancel" || action === "cancel_apt") && appointmentId) {
     const doc = await adminDb.collection("appointments").doc(appointmentId).get();
     if (!doc.exists) return;
-
-    const appointment = doc.data()!;
-    await adminDb.collection("appointments").doc(appointmentId).update({
-      status: "cancelled",
-      updatedAt: Timestamp.now(),
-    });
-
-    if (appointment.googleCalendarEventId) {
-      try { await deleteCalendarEvent(appointment.googleCalendarEventId); } catch {}
-    }
-
-    if (client) {
-      await adminDb.collection("clients").doc((client as { id: string }).id).update({
-        cancelledAppointments: FieldValue.increment(1),
-        updatedAt: Timestamp.now(),
-      });
-    }
-
-    await sendMessage(chatId, cancelledMessage(lang));
-    await notifyOwnerOfCancellation({
-      clientName: appointment.clientName,
-      dateTime: appointment.dateTime,
+    const apt = doc.data()!;
+    const config = await getConfig();
+    const tz = config?.timezone || "Europe/Kyiv";
+    const dateStr = formatInTimeZone(apt.dateTime.toDate(), tz, "dd.MM.yyyy HH:mm");
+    await sendMessage(chatId, cancelConfirmPrompt(lang, dateStr), {
+      replyMarkup: buildInlineKeyboard([
+        [
+          { text: lang === "uk" ? "✅ Так, скасувати" : "✅ Yes, cancel", callbackData: `cancel_confirm:${appointmentId}` },
+          { text: lang === "uk" ? "← Назад" : "← Back", callbackData: "back" },
+        ],
+        [{ text: lang === "uk" ? "✏️ Додати причину" : "✏️ Add reason", callbackData: `cancel_reason:${appointmentId}` }],
+      ]),
     });
   }
 
-  if (action === "cancel_apt") {
+  if (action === "cancel_confirm" && appointmentId) {
+    await performClientCancellation(appointmentId, chatId, lang, client);
+  }
+
+  if (action === "cancel_reason" && appointmentId) {
+    await adminDb.collection("bookingSessions").doc(String(chatId)).set({
+      step: "awaiting_cancel_reason",
+      aptId: appointmentId,
+      cancelType: "client",
+      createdAt: Timestamp.now(),
+    });
+    await sendMessage(chatId, cancelReasonPrompt(lang));
+  }
+
+  if (action === "owner_cancel" && appointmentId) {
     const aptDoc = await adminDb.collection("appointments").doc(appointmentId).get();
     if (!aptDoc.exists) return;
-
     const apt = aptDoc.data()!;
-    await adminDb.collection("appointments").doc(appointmentId).update({
-      status: "cancelled",
-      updatedAt: Timestamp.now(),
-    });
-
-    if (apt.googleCalendarEventId) {
-      try { await deleteCalendarEvent(apt.googleCalendarEventId); } catch {}
-    }
-
-    if (client) {
-      await adminDb.collection("clients").doc((client as { id: string }).id).update({
-        cancelledAppointments: FieldValue.increment(1),
-        updatedAt: Timestamp.now(),
-      });
-    }
-
-    await sendMessage(chatId, cancelledMessage(lang));
-    await notifyOwnerOfCancellation({
-      clientName: apt.clientName,
-      dateTime: apt.dateTime,
+    const config = await getConfig();
+    const tz = config?.timezone || "Europe/Kyiv";
+    const dateStr = formatInTimeZone(apt.dateTime.toDate(), tz, "dd.MM HH:mm");
+    await sendMessage(chatId, `❓ Скасувати запис <b>${apt.clientName}</b> на ${dateStr}?\n\nМожна додати причину або підтвердити без неї.`, {
+      replyMarkup: buildInlineKeyboard([
+        [
+          { text: "✅ Так, скасувати", callbackData: `owner_cancel_confirm:${appointmentId}` },
+          { text: "← Назад", callbackData: "back" },
+        ],
+        [{ text: "✏️ Додати причину", callbackData: `owner_cancel_reason:${appointmentId}` }],
+      ]),
     });
   }
 
-  if (action === "owner_cancel") {
-    const aptDoc = await adminDb.collection("appointments").doc(appointmentId).get();
-    if (!aptDoc.exists) return;
-
-    const apt = aptDoc.data()!;
-    await adminDb.collection("appointments").doc(appointmentId).update({
-      status: "cancelled",
-      updatedAt: Timestamp.now(),
-    });
-
-    if (apt.googleCalendarEventId) {
-      try { await deleteCalendarEvent(apt.googleCalendarEventId); } catch {}
-    }
-
-    if (apt.clientId) {
-      try {
-        await adminDb.collection("clients").doc(apt.clientId).update({
-          cancelledAppointments: FieldValue.increment(1),
-          updatedAt: Timestamp.now(),
-        });
-      } catch {}
-    }
-
-    if (apt.clientId) {
-      try {
-        const { notifyClientOfCancellation } = await import("./notifications");
-        await notifyClientOfCancellation({ clientId: apt.clientId, dateTime: apt.dateTime });
-      } catch {}
-    }
-
-    await sendMessage(chatId, `✅ Запис скасовано: ${apt.clientName}`);
+  if (action === "owner_cancel_confirm" && appointmentId) {
+    await performOwnerCancellation(appointmentId, chatId);
   }
+
+  if (action === "owner_cancel_reason" && appointmentId) {
+    await adminDb.collection("bookingSessions").doc(String(chatId)).set({
+      step: "awaiting_cancel_reason",
+      aptId: appointmentId,
+      cancelType: "owner",
+      createdAt: Timestamp.now(),
+    });
+    await sendMessage(chatId, "✏️ Введіть причину скасування:");
+  }
+
+  if (action === "back") return;
 
   if (action === "book_confirm") {
     await handleBookingConfirm(chatId, lang);
@@ -391,6 +368,16 @@ async function handleMessage(message: {
     }
 
     const session = sessionSnap.data()!;
+    if (session.step === "awaiting_cancel_reason") {
+      await adminDb.collection("bookingSessions").doc(String(chatId)).delete();
+      if (session.cancelType === "owner") {
+        await performOwnerCancellation(session.aptId, chatId, text);
+      } else {
+        await performClientCancellation(session.aptId, chatId, lang, client, text);
+      }
+      return;
+    }
+
     if (session.step === "awaiting_name") {
       await adminDb.collection("bookingSessions").doc(String(chatId)).update({
         name: text,
@@ -919,6 +906,74 @@ async function showOwnerWeekOverview(chatId: number) {
   }
 
   await sendMessage(chatId, `📋 <b>Записи на 7 днів:</b>\n\n${sections.join("\n\n")}`);
+}
+
+async function performClientCancellation(
+  appointmentId: string,
+  chatId: number,
+  lang: string,
+  client: object | null,
+  reason?: string
+) {
+  const doc = await adminDb.collection("appointments").doc(appointmentId).get();
+  if (!doc.exists) return;
+  const apt = doc.data()!;
+  const wasConfirmed = apt.status === "confirmed";
+  await adminDb.collection("appointments").doc(appointmentId).update({
+    status: "cancelled",
+    ...(reason ? { cancellationReason: reason } : {}),
+    updatedAt: Timestamp.now(),
+  });
+  if (apt.googleCalendarEventId) {
+    try { await deleteCalendarEvent(apt.googleCalendarEventId); } catch {}
+  }
+  if (client) {
+    await adminDb.collection("clients").doc((client as { id: string }).id).update({
+      cancelledAppointments: FieldValue.increment(1),
+      ...(wasConfirmed ? { confirmedAppointments: FieldValue.increment(-1) } : {}),
+      updatedAt: Timestamp.now(),
+    });
+  }
+  await sendMessage(chatId, cancelledMessage(lang));
+  try {
+    await notifyOwnerOfCancellation({ clientName: apt.clientName, dateTime: apt.dateTime });
+  } catch {}
+}
+
+async function performOwnerCancellation(
+  appointmentId: string,
+  chatId: number,
+  reason?: string
+) {
+  const aptDoc = await adminDb.collection("appointments").doc(appointmentId).get();
+  if (!aptDoc.exists) return;
+  const apt = aptDoc.data()!;
+  const wasConfirmed = apt.status === "confirmed";
+  await adminDb.collection("appointments").doc(appointmentId).update({
+    status: "cancelled",
+    ...(reason ? { cancellationReason: reason } : {}),
+    updatedAt: Timestamp.now(),
+  });
+  if (apt.googleCalendarEventId) {
+    try { await deleteCalendarEvent(apt.googleCalendarEventId); } catch {}
+  }
+  if (apt.clientId) {
+    try {
+      await adminDb.collection("clients").doc(apt.clientId).update({
+        cancelledAppointments: FieldValue.increment(1),
+        ...(wasConfirmed ? { confirmedAppointments: FieldValue.increment(-1) } : {}),
+        updatedAt: Timestamp.now(),
+      });
+    } catch {}
+  }
+  if (apt.clientId) {
+    try {
+      await notifyClientOfCancellation({ clientId: apt.clientId, dateTime: apt.dateTime });
+    } catch {}
+  }
+  try {
+    await sendMessage(chatId, `✅ Запис скасовано: ${apt.clientName}`);
+  } catch {}
 }
 
 async function sendOwnerAdminLink(chatId: number) {
