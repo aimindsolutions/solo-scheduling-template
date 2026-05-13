@@ -9,6 +9,7 @@ import { getAvailableSlots, getDaysWithAvailability, getNowLocalForSlots } from 
 import { parse, format, startOfDay, endOfDay } from "date-fns";
 import { parseInTimeZone, formatInTimeZone, startOfDayInTimeZone, endOfDayInTimeZone, nowInTimeZone } from "@/lib/date-utils";
 import type { BusinessConfig, Appointment } from "@/types";
+import { normalizePhone } from "@/lib/utils";
 
 interface TelegramUpdate {
   message?: {
@@ -451,10 +452,11 @@ async function startBookingFlow(
   await sendMessage(chatId, bookingStartMessage(lang));
 }
 
-async function handlePhoneShared(chatId: number, phone: string, lang: string) {
+async function handlePhoneShared(chatId: number, rawPhone: string, lang: string) {
   const sessionSnap = await adminDb.collection("bookingSessions").doc(String(chatId)).get();
   if (!sessionSnap.exists) return;
 
+  const phone = normalizePhone(rawPhone);
   await adminDb.collection("bookingSessions").doc(String(chatId)).update({
     phone,
     step: "awaiting_date",
@@ -567,16 +569,24 @@ async function handleBookingConfirm(chatId: number, lang: string) {
   const notes = session.notes?.trim() || null;
 
   let clientId: string;
-  const clientQuery = await adminDb
+  const sessionPhone = normalizePhone(session.phone);
+  let clientQuery = await adminDb
     .collection("clients")
-    .where("phone", "==", session.phone)
+    .where("phone", "==", sessionPhone)
     .limit(1)
     .get();
+  if (clientQuery.empty && sessionPhone.startsWith("+")) {
+    clientQuery = await adminDb
+      .collection("clients")
+      .where("phone", "==", sessionPhone.slice(1))
+      .limit(1)
+      .get();
+  }
 
   if (clientQuery.empty) {
     const ref = await adminDb.collection("clients").add({
       firstName: session.name,
-      phone: session.phone,
+      phone: sessionPhone,
       telegramChatId: String(chatId),
       language: lang,
       consentGiven: true,

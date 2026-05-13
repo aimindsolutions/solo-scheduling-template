@@ -8,6 +8,7 @@ import { getAvailableSlots, getNowLocalForSlots } from "@/lib/slots";
 import { parse } from "date-fns";
 import type { BusinessConfig, Appointment } from "@/types";
 import { verifyAdminAuth } from "@/lib/api-auth";
+import { normalizePhone } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -20,8 +21,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { firstName, lastName, phone, email, notes, date, time, consentGiven } =
+  const { firstName, lastName, phone: rawPhone, email, notes, date, time, consentGiven } =
     parsed.data;
+  const phone = normalizePhone(rawPhone);
   const locale = body.locale || "uk";
 
   const configSnap = await adminDb.collection("businessConfig").doc("main").get();
@@ -43,11 +45,19 @@ export async function POST(request: NextRequest) {
   const dayEnd = endOfDayInTimeZone(date, tz);
 
   let clientId: string;
-  const clientQuery = await adminDb
+  // Query with normalized phone; fall back to bare digits (legacy records without +)
+  let clientQuery = await adminDb
     .collection("clients")
     .where("phone", "==", phone)
     .limit(1)
     .get();
+  if (clientQuery.empty && phone.startsWith("+")) {
+    clientQuery = await adminDb
+      .collection("clients")
+      .where("phone", "==", phone.slice(1))
+      .limit(1)
+      .get();
+  }
 
   if (clientQuery.empty) {
     const clientRef = await adminDb.collection("clients").add({

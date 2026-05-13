@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { bookingFormSchema } from "@/lib/validators";
+import { normalizePhone } from "@/lib/utils";
+
+const LS_KEY = "solo_client_data";
+
+interface SavedClientData {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+}
 
 interface BookingFormProps {
   date: string;
@@ -20,6 +30,7 @@ export function BookingForm({ date, time, onSuccess }: BookingFormProps) {
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [savedData, setSavedData] = useState<SavedClientData | null>(null);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -30,9 +41,35 @@ export function BookingForm({ date, time, onSuccess }: BookingFormProps) {
     consentGiven: false,
   });
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) setSavedData(JSON.parse(raw) as SavedClientData);
+    } catch {}
+  }, []);
+
+  function prefillFromSaved() {
+    if (!savedData) return;
+    setFormData((prev) => ({
+      ...prev,
+      firstName: savedData.firstName || prev.firstName,
+      lastName: savedData.lastName || prev.lastName,
+      phone: savedData.phone || prev.phone,
+      email: savedData.email || prev.email,
+    }));
+    setSavedData(null);
+  }
+
   function updateField(field: string, value: string | boolean) {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
+  }
+
+  function handlePhoneBlur() {
+    if (formData.phone) {
+      const normalized = normalizePhone(formData.phone);
+      setFormData((prev) => ({ ...prev, phone: normalized }));
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -69,6 +106,14 @@ export function BookingForm({ date, time, onSuccess }: BookingFormProps) {
       }
 
       const data = await res.json();
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone,
+          email: formData.email,
+        }));
+      } catch {}
       onSuccess(data.appointmentId);
     } catch (err) {
       setErrors({ form: err instanceof Error ? err.message : "Unknown error" });
@@ -85,6 +130,19 @@ export function BookingForm({ date, time, onSuccess }: BookingFormProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {savedData && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+            <span>{locale === "uk" ? `👋 Повернулися? Заповнити ваші дані (${savedData.firstName})?` : `👋 Welcome back, ${savedData.firstName}! Use your saved info?`}</span>
+            <div className="flex gap-2 shrink-0">
+              <Button type="button" size="sm" variant="outline" onClick={() => setSavedData(null)}>
+                {locale === "uk" ? "Ні" : "No"}
+              </Button>
+              <Button type="button" size="sm" onClick={prefillFromSaved}>
+                {locale === "uk" ? "Так" : "Yes"}
+              </Button>
+            </div>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="firstName">{t("booking.form.firstName")} *</Label>
@@ -117,6 +175,7 @@ export function BookingForm({ date, time, onSuccess }: BookingFormProps) {
               placeholder={t("booking.form.phonePlaceholder")}
               value={formData.phone}
               onChange={(e) => updateField("phone", e.target.value)}
+              onBlur={handlePhoneBlur}
             />
             {errors.phone && (
               <p className="text-sm text-destructive">{errors.phone}</p>

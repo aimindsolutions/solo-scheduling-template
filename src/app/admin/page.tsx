@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, EyeOff, Eye } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
 import { formatInTimeZone } from "@/lib/date-utils";
 
@@ -40,6 +40,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [showCancelled, setShowCancelled] = useState(false);
   const [selectedApt, setSelectedApt] = useState<AppointmentData | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     type: "confirm" | "complete" | "no_show";
@@ -126,7 +127,18 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowCancelled((v) => !v)}
+          className="gap-2"
+        >
+          {showCancelled ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          {showCancelled ? "Hide cancelled" : "Show cancelled"}
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -194,7 +206,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               ))}
-              {todayCancelled.map((apt) => (
+              {showCancelled && todayCancelled.map((apt) => (
                 <div
                   key={apt.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border border-red-200 dark:border-red-900/50 rounded-lg opacity-60 cursor-pointer"
@@ -222,32 +234,40 @@ export default function AdminDashboardPage() {
           <CardTitle>Upcoming</CardTitle>
         </CardHeader>
         <CardContent>
-          {upcomingAppointments.length === 0 ? (
-            <p className="text-muted-foreground">No upcoming appointments</p>
-          ) : (
-            <div className="space-y-3">
-              {upcomingAppointments.slice(0, 10).map((apt) => (
-                <div
-                  key={apt.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
-                  onClick={() => setSelectedApt(apt)}
-                >
-                  <div>
-                    <p className="font-medium">{apt.clientName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {fmtDateTime(apt.dateTime)} — {apt.clientPhone}
-                    </p>
-                    {apt.notes && (
-                      <p className="text-xs text-muted-foreground mt-1">💬 {apt.notes}</p>
-                    )}
+          {(() => {
+            const nowIso2 = new Date().toISOString();
+            const upcomingCancelled = showCancelled
+              ? appointments.filter((a) => a.dateTime > nowIso2 && a.status === "cancelled")
+              : [];
+            const list = [...upcomingAppointments, ...upcomingCancelled]
+              .sort((a, b) => a.dateTime.localeCompare(b.dateTime))
+              .slice(0, 10);
+            if (list.length === 0) return <p className="text-muted-foreground">No upcoming appointments</p>;
+            return (
+              <div className="space-y-3">
+                {list.map((apt) => (
+                  <div
+                    key={apt.id}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 border rounded-lg cursor-pointer transition-colors ${apt.status === "cancelled" ? "opacity-60 border-red-200 dark:border-red-900/50" : "hover:bg-accent/50"}`}
+                    onClick={() => setSelectedApt(apt)}
+                  >
+                    <div>
+                      <p className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>{apt.clientName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {fmtDateTime(apt.dateTime)} — {apt.clientPhone}
+                      </p>
+                      {apt.notes && (
+                        <p className="text-xs text-muted-foreground mt-1">💬 {apt.notes}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={statusColor[apt.status] || ""}>{apt.status}</Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={statusColor[apt.status] || ""}>{apt.status}</Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 

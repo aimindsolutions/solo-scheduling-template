@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Eye, Trash2, CheckCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Trash2, CheckCircle, EyeOff } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
 import { formatInTimeZone } from "@/lib/date-utils";
@@ -52,6 +52,7 @@ export default function AdminCalendarPage() {
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
   const [loading, setLoading] = useState(true);
+  const [showCancelled, setShowCancelled] = useState(false);
   const [selectedApt, setSelectedApt] = useState<AppointmentData | null>(null);
   const [dayView, setDayView] = useState<Date | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
@@ -257,7 +258,7 @@ export default function AdminCalendarPage() {
     if (!dayView) return null;
     const dayStr = format(dayView, "yyyy-MM-dd");
     const dayApts = appointments
-      .filter((a) => getAptDateStr(a.dateTime) === dayStr)
+      .filter((a) => getAptDateStr(a.dateTime) === dayStr && (showCancelled || a.status !== "cancelled"))
       .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
 
     return (
@@ -334,6 +335,15 @@ export default function AdminCalendarPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
+            size="sm"
+            onClick={() => setShowCancelled((v) => !v)}
+            className="gap-2"
+          >
+            {showCancelled ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showCancelled ? "Hide cancelled" : "Show cancelled"}
+          </Button>
+          <Button
+            variant="outline"
             size="icon"
             onClick={() => setWeekStart((d) => addDays(d, -7))}
           >
@@ -360,7 +370,7 @@ export default function AdminCalendarPage() {
           {days.map((day) => {
             const dayStr = format(day, "yyyy-MM-dd");
             const dayAppointments = appointments
-              .filter((a) => getAptDateStr(a.dateTime) === dayStr)
+              .filter((a) => getAptDateStr(a.dateTime) === dayStr && (showCancelled || a.status !== "cancelled"))
               .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
             const isToday = isSameDay(day, new Date());
 
