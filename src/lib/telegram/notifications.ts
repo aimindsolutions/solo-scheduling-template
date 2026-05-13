@@ -17,6 +17,7 @@ function toDate(dt: { toDate: () => Date } | Date): Date {
 export async function notifyOwnerOfCancellation(appointment: {
   clientName: string;
   dateTime: { toDate: () => Date } | Date;
+  reason?: string;
 }) {
   const config = await getConfig();
   if (!config?.ownerTelegramChatId) return;
@@ -27,13 +28,14 @@ export async function notifyOwnerOfCancellation(appointment: {
 
   await sendMessage(
     config.ownerTelegramChatId,
-    clientCancelledNotifyOwner({ clientName: appointment.clientName, date, serviceName, timezone: tz })
+    clientCancelledNotifyOwner({ clientName: appointment.clientName, date, serviceName, timezone: tz, reason: appointment.reason })
   );
 }
 
 export async function notifyClientOfCancellation(appointment: {
   clientId: string;
   dateTime: { toDate: () => Date } | Date;
+  reason?: string;
 }) {
   const config = await getConfig();
   const serviceName = config?.serviceName || "Appointment";
@@ -50,7 +52,7 @@ export async function notifyClientOfCancellation(appointment: {
 
   await sendMessage(
     client.telegramChatId,
-    ownerCancelledNotifyClient(lang, { date, serviceName, timezone: tz })
+    ownerCancelledNotifyClient(lang, { date, serviceName, timezone: tz, reason: appointment.reason })
   );
 }
 

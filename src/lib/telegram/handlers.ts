@@ -936,7 +936,7 @@ async function performClientCancellation(
   }
   await sendMessage(chatId, cancelledMessage(lang));
   try {
-    await notifyOwnerOfCancellation({ clientName: apt.clientName, dateTime: apt.dateTime });
+    await notifyOwnerOfCancellation({ clientName: apt.clientName, dateTime: apt.dateTime, reason });
   } catch {}
 }
 
@@ -968,7 +968,7 @@ async function performOwnerCancellation(
   }
   if (apt.clientId) {
     try {
-      await notifyClientOfCancellation({ clientId: apt.clientId, dateTime: apt.dateTime });
+      await notifyClientOfCancellation({ clientId: apt.clientId, dateTime: apt.dateTime, reason });
     } catch {}
   }
   try {

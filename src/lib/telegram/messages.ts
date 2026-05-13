@@ -150,27 +150,31 @@ export function consentMessage(lang: string) {
 }
 
 export function clientCancelledNotifyOwner(
-  data: { clientName: string; date: Date; serviceName: string; timezone?: string }
+  data: { clientName: string; date: Date; serviceName: string; timezone?: string; reason?: string }
 ) {
   const tz = data.timezone || "Europe/Kyiv";
   const dateStr = fmtDate(data.date, tz, "uk");
-  return `⚠️ Клієнт <b>${data.clientName}</b> скасував запис\n📅 ${data.serviceName}\n📆 ${dateStr}`;
+  const reasonLine = data.reason ? `\n💬 Причина: ${data.reason}` : "";
+  return `⚠️ Клієнт <b>${data.clientName}</b> скасував запис\n📅 ${data.serviceName}\n📆 ${dateStr}${reasonLine}`;
 }
 
 export function ownerCancelledNotifyClient(
   lang: string,
-  data: { date: Date; serviceName: string; timezone?: string }
+  data: { date: Date; serviceName: string; timezone?: string; reason?: string }
 ) {
   const tz = data.timezone || "Europe/Kyiv";
   const dateStr = fmtDate(data.date, tz, lang);
+  const reasonLine = data.reason
+    ? (lang === "uk" ? `\n💬 Причина: ${data.reason}` : `\n💬 Reason: ${data.reason}`)
+    : "";
 
   if (lang === "uk") {
     return "😔 На жаль, ваш запис було скасовано\n" +
-      `📅 ${data.serviceName}\n📆 ${dateStr}\n\n` +
+      `📅 ${data.serviceName}\n📆 ${dateStr}${reasonLine}\n\n` +
       "Вибачте за незручності. Будь ласка, запишіться на інший час:\n/book";
   }
   return "😔 Unfortunately, your appointment has been cancelled\n" +
-    `📅 ${data.serviceName}\n📆 ${dateStr}\n\n` +
+    `📅 ${data.serviceName}\n📆 ${dateStr}${reasonLine}\n\n` +
     "We apologize for the inconvenience. Please reschedule:\n/book";
 }
 
