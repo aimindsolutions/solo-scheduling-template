@@ -273,7 +273,7 @@ async function handleMessage(message: {
 
     const config = await getConfig();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-    const isOwner = config?.ownerTelegramChatId === String(chatId);
+    const isOwner = String(config?.ownerTelegramChatId) === String(chatId);
 
     if (isOwner) {
       let adminUrl = `${appUrl}/admin`;
@@ -322,7 +322,7 @@ async function handleMessage(message: {
 
   if (text === "/today") {
     const config = await getConfig();
-    if (config?.ownerTelegramChatId === String(chatId)) {
+    if (String(config?.ownerTelegramChatId) === String(chatId)) {
       await showOwnerDayOverview(chatId);
       return;
     }
@@ -330,7 +330,7 @@ async function handleMessage(message: {
 
   if (text === "/week") {
     const config = await getConfig();
-    if (config?.ownerTelegramChatId === String(chatId)) {
+    if (String(config?.ownerTelegramChatId) === String(chatId)) {
       await showOwnerWeekOverview(chatId);
       return;
     }
@@ -338,7 +338,7 @@ async function handleMessage(message: {
 
   if (text === "/admin_cancel") {
     const config = await getConfig();
-    if (config?.ownerTelegramChatId === String(chatId)) {
+    if (String(config?.ownerTelegramChatId) === String(chatId)) {
       await showOwnerCancelMenu(chatId);
       return;
     }
@@ -346,7 +346,7 @@ async function handleMessage(message: {
 
   if (text === "/admin") {
     const config = await getConfig();
-    if (config?.ownerTelegramChatId === String(chatId)) {
+    if (String(config?.ownerTelegramChatId) === String(chatId)) {
       await sendOwnerAdminLink(chatId);
       return;
     }
@@ -834,15 +834,21 @@ async function showOwnerDayOverview(chatId: number) {
 
 async function showOwnerCancelMenu(chatId: number) {
   const now = new Date();
+  // Use range-only query (no compound "in" + range) to avoid requiring an extra
+  // composite index. Filter status in JS on the small result set.
   const snap = await adminDb
     .collection("appointments")
-    .where("status", "in", ["booked", "confirmed"])
     .where("dateTime", ">=", now)
     .orderBy("dateTime", "asc")
-    .limit(10)
+    .limit(30)
     .get();
 
-  if (snap.empty) {
+  const active = snap.docs.filter((d) => {
+    const s = d.data().status;
+    return s === "booked" || s === "confirmed";
+  }).slice(0, 10);
+
+  if (active.length === 0) {
     await sendMessage(chatId, "Немає майбутніх записів для скасування.");
     return;
   }
@@ -850,7 +856,7 @@ async function showOwnerCancelMenu(chatId: number) {
   const config = await getConfig();
   const tz = config?.timezone || "Europe/Kyiv";
 
-  const buttons = snap.docs.map((doc) => {
+  const buttons = active.map((doc) => {
     const d = doc.data();
     const dateStr = formatInTimeZone(d.dateTime.toDate(), tz, "dd.MM HH:mm");
     return [{ text: `❌ ${dateStr} — ${d.clientName}`, callbackData: `owner_cancel:${doc.id}` }];
