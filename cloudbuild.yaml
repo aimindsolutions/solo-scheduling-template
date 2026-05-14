@@ -32,5 +32,8 @@ steps:
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/solo-scheduling/app:$COMMIT_SHA'
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 # Only trigger on feature/client-auth-gcp branch (main stays on Vercel)
 # Trigger configured in GCP Console: branch = ^feature/client-auth-gcp$
