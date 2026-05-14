@@ -1,0 +1,36 @@
+steps:
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/solo-scheduling/app:$COMMIT_SHA'
+      - '.'
+
+  # Step 2: Push image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/solo-scheduling/app:$COMMIT_SHA'
+
+  # Step 3: Deploy to Cloud Run (DEV service)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'solo-scheduling-dev'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/solo-scheduling/app:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+      - '--memory=512Mi'
+      - '--min-instances=0'
+      - '--max-instances=2'
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/solo-scheduling/app:$COMMIT_SHA'
+
+# Only trigger on feature/client-auth-gcp branch (main stays on Vercel)
+# Trigger configured in GCP Console: branch = ^feature/client-auth-gcp$
