@@ -1,12 +1,12 @@
 steps:
-  # Step 1: Build Docker image — NEXT_PUBLIC_* vars baked in from Secret Manager
+  # Step 1: Build Docker image — all NEXT_PUBLIC_* vars baked in at build time
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY=$$NEXT_PUBLIC_FIREBASE_API_KEY'
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCsTLXTo8oAl1hY3tG00eUbQ0Frdl8neIM'
       - '--build-arg'
-      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=734781124926'
       - '--build-arg'
       - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=scheduler-56e1a.firebaseapp.com'
       - '--build-arg'
@@ -22,9 +22,6 @@ steps:
       - '-t'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/solo-scheduling/app:$COMMIT_SHA'
       - '.'
-    secretEnv:
-      - 'NEXT_PUBLIC_FIREBASE_API_KEY'
-      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
 
   # Step 2: Push image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -32,7 +29,7 @@ steps:
       - 'push'
       - 'us-central1-docker.pkg.dev/$PROJECT_ID/solo-scheduling/app:$COMMIT_SHA'
 
-  # Step 3: Deploy to Cloud Run (DEV service) with env vars at runtime
+  # Step 3: Deploy to Cloud Run (DEV service) with server-side env vars at runtime
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -48,17 +45,10 @@ steps:
       - '--min-instances=1'
       - '--max-instances=2'
       - '--set-env-vars=FIREBASE_PROJECT_ID=scheduler-56e1a,FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@scheduler-56e1a.iam.gserviceaccount.com,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=scheduler-56e1a.firebaseapp.com,NEXT_PUBLIC_FIREBASE_PROJECT_ID=scheduler-56e1a,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=scheduler-56e1a.firebasestorage.app,NEXT_PUBLIC_FIREBASE_APP_ID=1:734781124926:web:ce0b3831797d5b7ff9fc6f,GOOGLE_CALENDAR_ID=8f779acf24a2355a9f0cebf54f20af4720dda13ad69c61688a134feb9c1981e6@group.calendar.google.com,GOOGLE_SERVICE_ACCOUNT_EMAIL=scheduler-calendar@scheduler-56e1a.iam.gserviceaccount.com,NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=business_sch_bot,NEXT_PUBLIC_APP_URL=https://solo-scheduling-dev-3phwuzlvka-uc.a.run.app'
-      - '--update-secrets=FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest,GOOGLE_PRIVATE_KEY=GOOGLE_PRIVATE_KEY:latest,TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,TELEGRAM_WEBHOOK_SECRET=TELEGRAM_WEBHOOK_SECRET:latest,CRON_SECRET=CRON_SECRET:latest,NEXT_PUBLIC_FIREBASE_API_KEY=NEXT_PUBLIC_FIREBASE_API_KEY:latest,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:latest'
+      - '--update-secrets=FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest,GOOGLE_PRIVATE_KEY=GOOGLE_PRIVATE_KEY:latest,TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,TELEGRAM_WEBHOOK_SECRET=TELEGRAM_WEBHOOK_SECRET:latest,CRON_SECRET=CRON_SECRET:latest'
 
 images:
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/solo-scheduling/app:$COMMIT_SHA'
-
-availableSecrets:
-  secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_API_KEY'
-    - versionName: projects/$PROJECT_ID/secrets/NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID/versions/latest
-      env: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
 
 options:
   logging: CLOUD_LOGGING_ONLY
