@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { generateIcsFile, generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
 
+// Prevent Next.js from trying to statically render this route at build time
+// Firebase Admin SDK requires runtime environment variables
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
