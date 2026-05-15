@@ -23,27 +23,29 @@ function getAdminApp(): App {
   });
 }
 
-// Lazy getters — Firebase is only initialized on first actual API call at runtime,
-// not during 'next build' static page generation.
-let _app: App | null = null;
-let _db: ReturnType<typeof getFirestore> | null = null;
-let _auth: ReturnType<typeof getAuth> | null = null;
-
-function getApp(): App {
-  if (!_app) _app = getAdminApp();
-  return _app;
+// Lazy getters — Firebase only initializes on first actual API call at runtime,
+// never during 'next build' static page generation.
+export function getAdminDb() {
+  return getFirestore(getAdminApp());
 }
 
+export function getAdminAuth() {
+  return getAuth(getAdminApp());
+}
+
+// Convenience aliases matching existing usage in codebase
 export const adminDb = new Proxy({} as ReturnType<typeof getFirestore>, {
-  get(_target, prop) {
-    if (!_db) _db = getFirestore(getApp());
-    return (_db as any)[prop];
+  get(_target, prop: string) {
+    const db = getFirestore(getAdminApp());
+    const value = (db as any)[prop];
+    return typeof value === 'function' ? value.bind(db) : value;
   },
 });
 
 export const adminAuth = new Proxy({} as ReturnType<typeof getAuth>, {
-  get(_target, prop) {
-    if (!_auth) _auth = getAuth(getApp());
-    return (_auth as any)[prop];
+  get(_target, prop: string) {
+    const auth = getAuth(getAdminApp());
+    const value = (auth as any)[prop];
+    return typeof value === 'function' ? value.bind(auth) : value;
   },
 });
