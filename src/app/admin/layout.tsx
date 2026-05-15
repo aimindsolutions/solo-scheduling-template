@@ -6,6 +6,10 @@ import { onAuthChange } from "@/lib/firebase/auth";
 import type { User } from "firebase/auth";
 import { AdminSidebar } from "@/components/admin/sidebar";
 
+// Prevent Next.js from pre-rendering admin pages at build time.
+// Firebase Auth client SDK requires NEXT_PUBLIC_FIREBASE_API_KEY at runtime.
+export const dynamic = 'force-dynamic';
+
 export default function AdminLayout({
   children,
 }: {
