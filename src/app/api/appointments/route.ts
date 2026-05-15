@@ -10,6 +10,8 @@ import type { BusinessConfig, Appointment } from "@/types";
 import { verifyAdminAuth } from "@/lib/api-auth";
 import { normalizePhone } from "@/lib/utils";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const parsed = bookingFormSchema.safeParse(body);
@@ -45,7 +47,6 @@ export async function POST(request: NextRequest) {
   const dayEnd = endOfDayInTimeZone(date, tz);
 
   let clientId: string;
-  // Query with normalized phone; fall back to bare digits (legacy records without +)
   let clientQuery = await adminDb
     .collection("clients")
     .where("phone", "==", phone)

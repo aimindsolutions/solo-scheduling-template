@@ -5,6 +5,8 @@ import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { notifyClientOfCancellation, notifyClientOfConfirmation } from "@/lib/telegram/notifications";
 import { verifyAdminAuth } from "@/lib/api-auth";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
