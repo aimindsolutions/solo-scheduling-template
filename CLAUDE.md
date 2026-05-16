@@ -15,16 +15,38 @@ No test runner is configured. Use `npm run build` to verify TypeScript correctne
 
 Build will fail at page generation if Firebase credentials are missing (`.env.local`), but TypeScript compilation succeeding is the key check.
 
+## Deployment
+
+**Two-branch strategy:**
+- `main` → Vercel (production backup, untouched)
+- `feature/client-auth-gcp` → GCP Cloud Run DEV (active development) — **this is the working branch**
+
+GCP service: `solo-scheduling-dev` at `https://solo-scheduling-dev-3phwuzlvka-uc.a.run.app`
+GCP project: `scheduler-56e1a` | Region: `us-central1`
+Cloud Build trigger: `deploy-feature-gcp` watches `^feature/client-auth-gcp$`
+
+**To trigger a build manually:**
+```bash
+gcloud builds triggers run deploy-feature-gcp \
+  --branch=feature/client-auth-gcp --project=scheduler-56e1a
+```
+
+**NEXT_PUBLIC_* vars must be baked at Docker build time** (not runtime) because Next.js inlines them during webpack compilation. All are passed as `--build-arg` in `cloudbuild.yaml`. Do not move them to runtime-only env vars.
+
+**Telegram webhook** currently points to GCP URL. To update: `gcloud secrets versions access latest --secret=TELEGRAM_BOT_TOKEN --project=scheduler-56e1a`
+
+**Firebase Auth authorized domains** must include the Cloud Run URL — add in Firebase Console → Authentication → Settings → Authorized domains.
+
 ## Architecture
 
-Solo service business scheduling template: Next.js 16 App Router on Vercel, Firestore as primary data store, Google Calendar as synchronized view, Telegram bot for client interaction.
+Solo service business scheduling template: Next.js 16 App Router, Firestore as primary data store, Google Calendar as synchronized view, Telegram bot for client interaction.
 
 ### Two separate app segments
 
 - **`/[locale]/*`** — Public client-facing pages (landing, booking form, success). Wrapped with `next-intl` for i18n (Ukrainian default, English). Uses `NextIntlClientProvider` in locale layout.
 - **`/admin/*`** — Owner dashboard (no i18n). Protected by Firebase Auth guard in `admin/layout.tsx`. Uses client-side Firebase SDK for auth state.
 
-These never share layouts. The middleware (`src/middleware.ts`) handles locale detection for public routes only — admin and API routes are excluded via matcher.
+These never share layouts. The proxy (`src/proxy.ts`) handles locale detection for public routes only — admin and API routes are excluded via matcher. File is named `proxy.ts` per Next.js 16 convention (was `middleware.ts`).
 
 ### i18n routing
 
@@ -32,10 +54,10 @@ These never share layouts. The middleware (`src/middleware.ts`) handles locale d
 
 ### Firebase: two SDKs, two contexts
 
-- **`src/lib/firebase/admin.ts`** — Admin SDK with service account. Server-side only (API routes, Telegram handlers, cron). Exports `adminDb`, `adminAuth`.
-- **`src/lib/firebase/client.ts`** — Client SDK with public config. Browser-side only (admin dashboard auth). Exports `db`, `auth`.
+- **`src/lib/firebase/admin.ts`** — Admin SDK with service account. Server-side only (API routes, Telegram handlers, cron). Exports `adminDb`, `adminAuth` as Proxy objects (lazy init — Firebase only initializes on first API call, not at module load during `next build`).
+- **`src/lib/firebase/client.ts`** — Client SDK with public config. Browser-side only (admin dashboard auth). Exports `db`, `auth` as Proxy objects (same lazy init pattern).
 
-Never import admin SDK in client components or vice versa.
+Never import admin SDK in client components or vice versa. The lazy init is critical for Docker/Cloud Run — env vars aren't available at build time.
 
 ### API routes
 
@@ -78,7 +100,7 @@ Service account auth via `googleapis` JWT. Color coding: orange (colorId "6") = 
 
 ### Cron reminders
 
-Vercel cron hits `GET /api/cron/reminders` every 10 minutes. Queries for confirmed appointments needing 24h or 2h reminders, sends via Telegram, marks flags as sent.
+External cron service (cron-job.org) hits `GET /api/cron/reminders` every 10 minutes with `Authorization: Bearer {CRON_SECRET}`. Queries for appointments needing 24h or 2h reminders, sends via Telegram, marks flags as sent. Also cleans expired `bookingSessions`. Update the URL in cron-job.org to the GCP service URL.
 
 ## Data model (Firestore)
 
@@ -92,10 +114,11 @@ Appointment statuses: `booked` → `confirmed` → `completed` | `cancelled` | `
 
 ### Known issues
 
-- Booking form inputs not disabled during submission (allows double-submit).
+- Booking form inputs not disabled during submission (allows double-submit) — fix in P9.
 - Root `<html>` element missing `lang` attribute.
-- Slot booking has no transaction lock — concurrent requests could double-book.
 - `verifyAdminAuth` accepts any valid Firebase user, not just the owner.
+- Cron-job.org URL still points to Vercel — update to GCP URL.
+- New Firestore index `(clientId, dateTime DESC)` added to `firestore.indexes.json` but must be deployed: `firebase deploy --only firestore:indexes --project scheduler-56e1a`.
 
 ## Next.js 16 notice
 
