@@ -19,7 +19,7 @@ export default function AdminLoginPage() {
   const [magicLoading, setMagicLoading] = useState(false);
 
   useEffect(() => {
-    const token = searchParams.get("token");
+    const token = searchParams.get("token")?.replace(/\?+$/, "");
     if (!token) return;
 
     setMagicLoading(true);
