@@ -26,6 +26,16 @@ interface ClientData {
   confirmedAppointments: number;
   cancelledAppointments: number;
   noShowAppointments: number;
+  phoneVerified?: boolean;
+  authMethods?: string[];
+}
+
+function getVerificationBadge(client: ClientData) {
+  const hasAuth = client.authMethods && client.authMethods.length > 0;
+  if (hasAuth && client.phoneVerified) return null;
+  if (hasAuth && !client.phoneVerified)
+    return <Badge variant="outline" className="border-orange-400 text-orange-600 text-xs">Unverified</Badge>;
+  return null;
 }
 
 function getReliabilityBadge(client: ClientData) {
@@ -104,7 +114,12 @@ export default function AdminClientsPage() {
                     </TableCell>
                     <TableCell>{client.phone}</TableCell>
                     <TableCell>{client.totalAppointments || 0}</TableCell>
-                    <TableCell>{getReliabilityBadge(client)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {getVerificationBadge(client)}
+                        {getReliabilityBadge(client)}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {clients.length === 0 && (
@@ -138,10 +153,11 @@ export default function AdminClientsPage() {
                       </p>
                       <p className="text-sm text-muted-foreground">{client.phone}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
                       <span className="text-sm text-muted-foreground">
                         {client.totalAppointments || 0} visits
                       </span>
+                      {getVerificationBadge(client)}
                       {getReliabilityBadge(client)}
                     </div>
                   </div>
