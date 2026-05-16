@@ -25,11 +25,29 @@ export default function LandingPage() {
           <p className="text-lg text-muted-foreground">
             {t("landing.hero.subtitle")}
           </p>
+
           <Link href="/book">
-            <Button size="lg" className="text-lg px-8 py-6">
+            <Button size="lg" className="w-full text-lg px-8 py-6">
               {t("landing.hero.cta")}
             </Button>
           </Link>
+
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <div className="flex-1 border-t" />
+            <span className="text-sm">{t("common.or")}</span>
+            <div className="flex-1 border-t" />
+          </div>
+
+          <div className="space-y-2">
+            <Link href="/login">
+              <Button variant="outline" size="lg" className="w-full text-lg px-8 py-6">
+                {t("landing.hero.loginCta")}
+              </Button>
+            </Link>
+            <p className="text-sm text-muted-foreground">
+              {t("landing.hero.loginSubtitle")}
+            </p>
+          </div>
         </div>
       </main>
     </div>

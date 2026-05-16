@@ -10,13 +10,16 @@
     "close": "Close",
     "loading": "Loading...",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "or": "or"
   },
   "landing": {
     "hero": {
       "title": "Book Your Appointment Online",
       "subtitle": "Choose a convenient time and book in a few clicks",
-      "cta": "Book Now"
+      "cta": "Book Now",
+      "loginCta": "My Account",
+      "loginSubtitle": "View and manage your appointments"
     }
   },
   "booking": {
@@ -55,5 +58,76 @@
     "required": "This field is required",
     "invalidPhone": "Invalid phone number",
     "invalidEmail": "Invalid email address"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign In",
+      "subtitle": "Enter your phone number to continue",
+      "phonePlaceholder": "+380XXXXXXXXX",
+      "rememberMe": "Stay signed in for 30 days",
+      "submit": "Continue",
+      "noAccount": "Don't have an account?",
+      "register": "Register",
+      "errors": {
+        "notFound": "Phone number not found. Please register.",
+        "unverified": "Account not verified. Contact the administrator.",
+        "tooManyAttempts": "Too many attempts. Please try again later.",
+        "generic": "Sign in failed. Please try again."
+      }
+    },
+    "register": {
+      "title": "Create Account",
+      "subtitle": "Fill in your details to register",
+      "name": "Name",
+      "namePlaceholder": "Enter your name",
+      "phone": "Phone",
+      "phonePlaceholder": "+380XXXXXXXXX",
+      "email": "Email (optional)",
+      "emailPlaceholder": "your@email.com",
+      "consent": "I agree that my name, phone number and email will be stored and used only for managing my appointments and sending reminders, according to the Privacy Policy.",
+      "consentRequired": "Consent is required",
+      "submit": "Create Account",
+      "alreadyAccount": "Already have an account?",
+      "login": "Sign In",
+      "errors": {
+        "phoneExists": "This phone number is already registered. Please sign in.",
+        "generic": "Registration failed. Please try again."
+      }
+    },
+    "verify": {
+      "title": "Verification",
+      "telegramTitle": "Verify via Telegram",
+      "telegramInstructions": "Click the button below to open the bot and verify your phone number.",
+      "openTelegram": "Open Telegram to Verify",
+      "waiting": "Waiting for verification...",
+      "resend": "Send again",
+      "resendIn": "Resend in {seconds}s",
+      "expired": "Link expired. Request a new one.",
+      "success": "Phone verified! Redirecting...",
+      "errors": {
+        "expired": "Link is invalid or expired.",
+        "generic": "Verification failed. Please try again."
+      }
+    },
+    "dashboard": {
+      "title": "My Appointments",
+      "upcoming": "Upcoming Appointments",
+      "noAppointments": "No upcoming appointments",
+      "bookNew": "Book Appointment",
+      "status": {
+        "booked": "Awaiting Confirmation",
+        "confirmed": "Confirmed",
+        "cancelled": "Cancelled",
+        "completed": "Completed",
+        "no_show": "No Show"
+      },
+      "cancel": "Cancel Appointment",
+      "reschedule": "Reschedule",
+      "cancelConfirm": "Are you sure you want to cancel this appointment?",
+      "logout": "Sign Out",
+      "preferredChannel": "Notification channel",
+      "telegram": "Telegram",
+      "email": "Email"
+    }
   }
 }
