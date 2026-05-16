@@ -99,6 +99,8 @@
       "telegramTitle": "Verify via Telegram",
       "telegramInstructions": "Click the button below to open the bot and verify your phone number.",
       "openTelegram": "Open Telegram to Verify",
+      "useAccountFor": "Use the Telegram account with number:",
+      "orScanQr": "or scan the QR code on your phone",
       "waiting": "Waiting for verification...",
       "resend": "Send again",
       "resendIn": "Resend in {seconds}s",

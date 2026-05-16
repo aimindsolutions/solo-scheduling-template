@@ -252,16 +252,23 @@ async function handleMessage(message: {
         return;
       }
 
-      // Link telegramChatId to client + mark phoneVerified
-      await adminDb.collection("clients").doc(tokenDoc.clientId).update({
-        telegramChatId: String(chatId),
-        phoneVerified: true,
-        updatedAt: Timestamp.now(),
+      // Store pending verification — wait for phone share to confirm ownership
+      await adminDb.collection("bookingSessions").doc(String(chatId)).set({
+        step: "awaiting_phone_verify",
+        verifyToken: token,
+        expectedPhone: tokenDoc.phone,
+        createdAt: Timestamp.now(),
       });
 
-      await markTokenVerified(token, String(chatId));
-
-      await sendMessage(chatId, "✅ Телефон підтверджено! Поверніться до застосунку.");
+      await sendMessage(
+        chatId,
+        `📱 Для підтвердження поділіться номером телефону.\n\nОчікуємо номер: <b>${tokenDoc.phone}</b>`,
+        {
+          replyMarkup: buildReplyKeyboard([
+            [{ text: "📱 Поділитися номером", requestContact: true }],
+          ]),
+        }
+      );
       return;
     }
 
@@ -478,6 +485,46 @@ async function startBookingFlow(
 async function handlePhoneShared(chatId: number, rawPhone: string, lang: string) {
   const sessionSnap = await adminDb.collection("bookingSessions").doc(String(chatId)).get();
   if (!sessionSnap.exists) return;
+
+  const session = sessionSnap.data()!;
+
+  // Phone-ownership verification for registration/login
+  if (session.step === "awaiting_phone_verify") {
+    const sharedPhone = normalizePhone(rawPhone);
+    const expectedPhone = normalizePhone(session.expectedPhone as string);
+
+    await adminDb.collection("bookingSessions").doc(String(chatId)).delete();
+
+    if (sharedPhone !== expectedPhone) {
+      await sendMessage(
+        chatId,
+        `❌ Номер телефону не збігається.\n\nОчікувався: <b>${expectedPhone}</b>\nНадано: <b>${sharedPhone}</b>\n\nВикористайте Telegram-акаунт, зареєстрований на вказаний номер.`,
+        { replyMarkup: { remove_keyboard: true } }
+      );
+      return;
+    }
+
+    const tokenDoc = await getPhoneVerifyToken(session.verifyToken as string);
+    if (!tokenDoc || tokenDoc.used) {
+      await sendMessage(chatId, "❌ Посилання вже використане або прострочене. Запросіть нове.", {
+        replyMarkup: { remove_keyboard: true },
+      });
+      return;
+    }
+
+    await adminDb.collection("clients").doc(tokenDoc.clientId).update({
+      telegramChatId: String(chatId),
+      phoneVerified: true,
+      updatedAt: Timestamp.now(),
+    });
+
+    await markTokenVerified(session.verifyToken as string, String(chatId));
+
+    await sendMessage(chatId, "✅ Телефон підтверджено! Поверніться до застосунку.", {
+      replyMarkup: { remove_keyboard: true },
+    });
+    return;
+  }
 
   const phone = normalizePhone(rawPhone);
   await adminDb.collection("bookingSessions").doc(String(chatId)).update({

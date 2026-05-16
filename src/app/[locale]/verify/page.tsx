@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
 
 const RESEND_COOLDOWN = 60; // seconds
 const POLL_INTERVAL = 3000; // ms
@@ -95,12 +96,32 @@ export default function VerifyPage() {
                 <p className="text-muted-foreground">{t("telegramInstructions")}</p>
               </div>
 
+              {phone && (
+                <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm text-left space-y-1">
+                  <p className="text-muted-foreground">{t("useAccountFor")}</p>
+                  <p className="font-medium tabular-nums">{phone}</p>
+                </div>
+              )}
+
               {telegramUrl && (
-                <a href={telegramUrl} target="_blank" rel="noopener noreferrer">
+                <a href={telegramUrl} target="_blank" rel="noopener noreferrer" className="block">
                   <Button size="lg" className="w-full">
                     {t("openTelegram")}
                   </Button>
                 </a>
+              )}
+
+              {telegramUrl && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">{t("orScanQr")}</p>
+                  <div className="flex justify-center">
+                    <QRCodeSVG
+                      value={telegramUrl}
+                      size={160}
+                      className="rounded-lg border p-2 bg-white"
+                    />
+                  </div>
+                </div>
               )}
 
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
