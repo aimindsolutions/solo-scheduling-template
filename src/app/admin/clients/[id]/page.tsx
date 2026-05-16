@@ -69,25 +69,37 @@ export default function ClientDetailPage() {
   const [saving, setSaving] = useState(false);
 
   const fetchData = useCallback(async () => {
+    // Client fetch controls the "not found" state — isolated from appointments
+    let c: ClientDetail | null = null;
     try {
-      const [clientRes, aptsRes] = await Promise.all([
-        adminFetch(`/api/clients/${clientId}`),
-        adminFetch(`/api/appointments?clientId=${clientId}`),
-      ]);
+      const clientRes = await adminFetch(`/api/clients/${clientId}`);
       const clientData = await clientRes.json();
-      const aptsData = await aptsRes.json();
-      const c = clientData.client || clientData;
+      c = clientData.client || clientData;
       setClient(c);
-      setEditForm({
-        firstName: c.firstName || "",
-        lastName: c.lastName || "",
-        phone: c.phone || "",
-        email: c.email || "",
-      });
+      if (c) {
+        setEditForm({
+          firstName: c.firstName || "",
+          lastName: c.lastName || "",
+          phone: c.phone || "",
+          email: c.email || "",
+        });
+      }
+    } catch {
+      // client stays null
+    } finally {
+      setLoading(false);
+    }
+
+    if (!c) return;
+
+    // Appointments load separately — failure shows empty list, not "Client not found"
+    try {
+      const aptsRes = await adminFetch(`/api/appointments?clientId=${clientId}`);
+      const aptsData = await aptsRes.json();
       setAppointments(aptsData.appointments || []);
       if (aptsData.timezone) setTimezone(aptsData.timezone);
-    } catch {} finally {
-      setLoading(false);
+    } catch {
+      // show empty appointments list
     }
   }, [clientId]);
 
