@@ -51,7 +51,8 @@
       "addToCalendar": "Add to Calendar",
       "googleCalendar": "Google Calendar",
       "downloadIcs": "Download .ics file",
-      "backToHome": "Back to Home"
+      "backToHome": "Back to Home",
+      "backToCabinet": "Back to My Cabinet"
     }
   },
   "validation": {

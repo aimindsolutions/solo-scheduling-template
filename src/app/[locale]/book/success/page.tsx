@@ -1,19 +1,35 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Calendar, Download } from "lucide-react";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 
 export default function BookingSuccessPage() {
   const t = useTranslations("booking.success");
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const date = searchParams.get("date") || "";
   const time = searchParams.get("time") || "";
   const appointmentId = searchParams.get("id") || "";
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/client/profile")
+      .then((r) => {
+        if (r.ok) {
+          setIsLoggedIn(true);
+          // Auto-redirect to cabinet after 3 seconds
+          setTimeout(() => router.push("/client/dashboard"), 3000);
+        }
+      })
+      .catch(() => {});
+  }, [router]);
 
   const telegramBotUrl = `https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "your_bot"}?start=${appointmentId}`;
   const googleCalendarUrl = `/api/appointments/${appointmentId}/calendar?type=google`;
@@ -32,14 +48,16 @@ export default function BookingSuccessPage() {
               {t("message", { date, time })}
             </p>
 
-            <div className="space-y-3">
-              <p className="text-sm font-medium">{t("telegramPrompt")}</p>
-              <a href={telegramBotUrl} target="_blank" rel="noopener noreferrer">
-                <Button className="w-full" variant="default">
-                  {t("openTelegram")}
-                </Button>
-              </a>
-            </div>
+            {!isLoggedIn && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium">{t("telegramPrompt")}</p>
+                <a href={telegramBotUrl} target="_blank" rel="noopener noreferrer">
+                  <Button className="w-full" variant="default">
+                    {t("openTelegram")}
+                  </Button>
+                </a>
+              </div>
+            )}
 
             <div className="space-y-3">
               <p className="text-sm font-medium">{t("addToCalendar")}</p>
@@ -64,11 +82,17 @@ export default function BookingSuccessPage() {
               </div>
             </div>
 
-            <Link href="/" className="block">
-              <Button variant="ghost" className="w-full">
-                ← {t("backToHome")}
-              </Button>
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/client/dashboard" className="block">
+                <Button className="w-full">{t("backToCabinet")}</Button>
+              </Link>
+            ) : (
+              <Link href="/" className="block">
+                <Button variant="ghost" className="w-full">
+                  ← {t("backToHome")}
+                </Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       </main>

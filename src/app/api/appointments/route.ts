@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
-import { createCalendarEvent } from "@/lib/calendar/google";
+import { createCalendarEvent, confirmCalendarEvent } from "@/lib/calendar/google";
 import { bookingFormSchema } from "@/lib/validators";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import type { Query } from "firebase-admin/firestore";
@@ -10,6 +10,7 @@ import { parse } from "date-fns";
 import type { BusinessConfig, Appointment } from "@/types";
 import { verifyAdminAuth } from "@/lib/api-auth";
 import { normalizePhone } from "@/lib/utils";
+import { getSessionToken, validateSession } from "@/lib/auth/session";
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,14 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Logged-in clients get auto-confirmed — they already verified identity via Telegram
+  const sessionToken = getSessionToken(request);
+  let autoConfirm = false;
+  if (sessionToken) {
+    const { valid, clientId: sessionClientId } = await validateSession(sessionToken);
+    if (valid && sessionClientId === clientId) autoConfirm = true;
+  }
+
   let googleCalendarEventId: string | undefined;
   try {
     googleCalendarEventId = await createCalendarEvent({
@@ -98,6 +107,9 @@ export async function POST(request: NextRequest) {
       durationMinutes,
       description: `Phone: ${phone}${notes ? "\n" + notes : ""}`,
     });
+    if (autoConfirm && googleCalendarEventId) {
+      await confirmCalendarEvent(googleCalendarEventId);
+    }
   } catch {
     // Calendar sync is optional — don't block booking
   }
@@ -131,7 +143,7 @@ export async function POST(request: NextRequest) {
       clientPhone: phone,
       dateTime: Timestamp.fromDate(dateTime),
       durationMinutes,
-      status: "booked",
+      status: autoConfirm ? "confirmed" : "booked",
       source: "web",
       googleCalendarEventId: googleCalendarEventId || null,
       reminder24hSent: false,
@@ -143,6 +155,7 @@ export async function POST(request: NextRequest) {
 
     tx.update(adminDb.collection("clients").doc(clientId), {
       totalAppointments: FieldValue.increment(1),
+      ...(autoConfirm ? { confirmedAppointments: FieldValue.increment(1) } : {}),
       updatedAt: Timestamp.now(),
     });
 
@@ -168,7 +181,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     appointmentId: appointmentRef.id,
     clientId,
-    status: "booked",
+    status: autoConfirm ? "confirmed" : "booked",
   });
 }
 

@@ -51,7 +51,8 @@
       "addToCalendar": "Додати в календар",
       "googleCalendar": "Google Calendar",
       "downloadIcs": "Завантажити .ics файл",
-      "backToHome": "На головну"
+      "backToHome": "На головну",
+      "backToCabinet": "До особистого кабінету"
     }
   },
   "validation": {
