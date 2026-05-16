@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { createCalendarEvent } from "@/lib/calendar/google";
 import { bookingFormSchema } from "@/lib/validators";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
+import type { Query } from "firebase-admin/firestore";
 import { parseInTimeZone, startOfDayInTimeZone, endOfDayInTimeZone } from "@/lib/date-utils";
 import { getAvailableSlots, getNowLocalForSlots } from "@/lib/slots";
 import { parse } from "date-fns";
@@ -177,15 +178,23 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const cursorId = searchParams.get("cursor");
+  const clientIdFilter = searchParams.get("clientId");
   const pageSize = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
 
   const configSnap = await adminDb.collection("businessConfig").doc("main").get();
   const tz = configSnap.exists ? configSnap.data()!.timezone || "Europe/Kyiv" : "Europe/Kyiv";
 
-  let query = adminDb
-    .collection("appointments")
-    .orderBy("dateTime", "asc")
-    .limit(pageSize);
+  let query: Query = adminDb.collection("appointments");
+
+  if (clientIdFilter) {
+    query = query
+      .where("clientId", "==", clientIdFilter)
+      .orderBy("dateTime", "desc"); // most recent first for client history
+  } else {
+    query = query.orderBy("dateTime", "asc"); // upcoming first for main dashboard
+  }
+
+  query = query.limit(pageSize);
 
   if (cursorId) {
     const cursorDoc = await adminDb.collection("appointments").doc(cursorId).get();
