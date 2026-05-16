@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { BookingDatePicker } from "@/components/booking/date-picker";
@@ -11,11 +11,27 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 
+interface ClientProfile {
+  clientId: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+}
+
 export default function BookPage() {
   const t = useTranslations();
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
+
+  useEffect(() => {
+    fetch("/api/client/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setClientProfile(d); })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -50,6 +66,7 @@ export default function BookPage() {
             <BookingForm
               date={selectedDate}
               time={selectedTime}
+              clientProfile={clientProfile ?? undefined}
               onSuccess={(appointmentId) => {
                 router.push(
                   `/book/success?id=${appointmentId}&date=${selectedDate}&time=${selectedTime}`

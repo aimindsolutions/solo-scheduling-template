@@ -19,13 +19,21 @@ interface SavedClientData {
   email: string;
 }
 
+interface ClientProfile {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+}
+
 interface BookingFormProps {
   date: string;
   time: string;
   onSuccess: (appointmentId: string) => void;
+  clientProfile?: ClientProfile;
 }
 
-export function BookingForm({ date, time, onSuccess }: BookingFormProps) {
+export function BookingForm({ date, time, onSuccess, clientProfile }: BookingFormProps) {
   const t = useTranslations();
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
@@ -33,20 +41,35 @@ export function BookingForm({ date, time, onSuccess }: BookingFormProps) {
   const [savedData, setSavedData] = useState<SavedClientData | null>(null);
 
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    email: "",
+    firstName: clientProfile?.firstName ?? "",
+    lastName: clientProfile?.lastName ?? "",
+    phone: clientProfile?.phone ?? "",
+    email: clientProfile?.email ?? "",
     notes: "",
-    consentGiven: false,
+    consentGiven: !!clientProfile,
   });
 
+  // Update form when profile loads asynchronously
   useEffect(() => {
+    if (clientProfile) {
+      setFormData((prev) => ({
+        ...prev,
+        firstName: clientProfile.firstName,
+        lastName: clientProfile.lastName,
+        phone: clientProfile.phone,
+        email: clientProfile.email,
+        consentGiven: true,
+      }));
+    }
+  }, [clientProfile]);
+
+  useEffect(() => {
+    if (clientProfile) return; // don't load saved data when logged in
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) setSavedData(JSON.parse(raw) as SavedClientData);
     } catch {}
-  }, []);
+  }, [clientProfile]);
 
   function prefillFromSaved() {
     if (!savedData) return;
@@ -120,6 +143,41 @@ export function BookingForm({ date, time, onSuccess }: BookingFormProps) {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Logged-in client: show simplified confirmation (no personal info re-entry)
+  if (clientProfile) {
+    const displayName = [clientProfile.firstName, clientProfile.lastName].filter(Boolean).join(" ");
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{date} — {time}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border bg-muted/40 px-4 py-3 text-sm mb-4 space-y-1">
+            <p className="font-medium">{displayName}</p>
+            <p className="text-muted-foreground">{clientProfile.phone}</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="notes">{t("booking.form.notes")}</Label>
+              <Input
+                id="notes"
+                placeholder={t("booking.form.notesPlaceholder")}
+                value={formData.notes}
+                onChange={(e) => updateField("notes", e.target.value)}
+              />
+            </div>
+            {errors.form && (
+              <p className="text-sm text-destructive">{errors.form}</p>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? t("common.loading") : t("booking.submit")}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

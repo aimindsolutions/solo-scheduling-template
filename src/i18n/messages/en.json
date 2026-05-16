@@ -70,7 +70,7 @@
       "register": "Register",
       "errors": {
         "notFound": "Phone number not found. Please register.",
-        "unverified": "Account not verified. Contact the administrator.",
+        "unverified": "Phone not verified. Register again and we'll send a new verification link.",
         "tooManyAttempts": "Too many attempts. Please try again later.",
         "generic": "Sign in failed. Please try again."
       }

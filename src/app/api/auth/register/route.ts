@@ -6,34 +6,41 @@ import { normalizePhone } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-async function phoneExists(phone: string): Promise<boolean> {
+async function findExistingClient(phone: string) {
   let snap = await adminDb
     .collection("clients")
     .where("phone", "==", phone)
     .limit(1)
     .get();
-  if (!snap.empty) return true;
-  if (phone.startsWith("+")) {
+  if (snap.empty && phone.startsWith("+")) {
     snap = await adminDb
       .collection("clients")
       .where("phone", "==", phone.slice(1))
       .limit(1)
       .get();
-    if (!snap.empty) return true;
   }
-  return false;
+  if (snap.empty) return null;
+  return { id: snap.docs[0].id, ...snap.docs[0].data() } as Record<string, unknown> & { id: string };
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { name, email, consentText } = body;
   const phone = normalizePhone(body.phone || "");
+  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "";
 
   if (!name || !phone) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  if (await phoneExists(phone)) {
+  const existing = await findExistingClient(phone);
+  if (existing) {
+    // Unverified client (no telegramChatId) — re-issue a fresh verify token
+    if (!existing.telegramChatId && !existing.phoneVerified) {
+      const token = await createPhoneVerifyToken(phone, existing.id, false);
+      const telegramUrl = `https://t.me/${botUsername}?start=verify_${token}`;
+      return NextResponse.json({ status: "telegram_sent", telegramUrl, verifyToken: token });
+    }
     return NextResponse.json({ status: "phone_exists" }, { status: 400 });
   }
 
@@ -72,8 +79,6 @@ export async function POST(request: NextRequest) {
   });
 
   const token = await createPhoneVerifyToken(phone, clientRef.id, false);
-
-  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "";
   const telegramUrl = `https://t.me/${botUsername}?start=verify_${token}`;
 
   // Notify owner of new unverified client
