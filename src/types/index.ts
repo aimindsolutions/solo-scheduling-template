@@ -1,5 +1,38 @@
 import { Timestamp } from "firebase/firestore";
 
+export type AuthMethod = "phone_telegram" | "google" | "email_magic";
+
+export interface ClientSession {
+  clientId: string;
+  createdAt: Timestamp | Date;
+  expiresAt: Timestamp | Date;
+  authMethod: AuthMethod;
+  rememberMe: boolean;
+  ipHash: string;
+}
+
+export interface PhoneVerifyToken {
+  phone: string;
+  clientId?: string;
+  registrationData?: {
+    name: string;
+    email?: string;
+    consentText: string;
+    consentTimestamp: Timestamp | Date;
+  };
+  createdAt: Timestamp | Date;
+  expiresAt: Timestamp | Date;
+  used: boolean;
+}
+
+export interface AuthRateLimit {
+  key: string;
+  attempts: number;
+  windowStart: Timestamp | Date;
+  blockedUntil?: Timestamp | Date;
+  expiresAt: Timestamp | Date;
+}
+
 export interface VacationDay {
   id: string;
   startDate: string;
@@ -36,12 +69,19 @@ export interface Client {
   consentTimestamp: Timestamp | Date;
   consentLanguage: string;
   consentJurisdiction: "UA" | "BG";
+  consentText?: string;
   totalAppointments: number;
   confirmedAppointments: number;
   cancelledAppointments: number;
   noShowAppointments: number;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
+  // Client auth fields
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  googleId?: string;
+  authMethods?: AuthMethod[];
+  preferredChannel?: "telegram" | "email";
 }
 
 export type AppointmentStatus =

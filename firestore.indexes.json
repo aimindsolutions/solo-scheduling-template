@@ -42,6 +42,22 @@
         { "fieldPath": "clientId", "order": "ASCENDING" },
         { "fieldPath": "dateTime", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "clientSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "authRateLimit",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "key", "order": "ASCENDING" },
+        { "fieldPath": "windowStart", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
