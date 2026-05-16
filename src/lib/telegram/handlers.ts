@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
+import { getPhoneVerifyToken, markTokenVerified } from "@/lib/auth/tokens";
 import { sendMessage, sendDocument, answerCallbackQuery, buildInlineKeyboard, buildReplyKeyboard } from "./bot";
 import { confirmationMessage, confirmedMessage, cancelledMessage, cancelConfirmPrompt, cancelReasonPrompt, welcomeMessage, bookingStartMessage, askPhoneMessage, sharePhoneButton, selectDateMessage, selectTimeMessage, bookingConfirmedMessage, noSlotsMessage, confirmBookingPrompt } from "./messages";
 import { confirmCalendarEvent, deleteCalendarEvent, createCalendarEvent } from "@/lib/calendar/google";
@@ -240,6 +241,28 @@ async function handleMessage(message: {
           updatedAt: Timestamp.now(),
         });
       }
+    }
+
+    if (payload?.startsWith("verify_")) {
+      const token = payload.slice("verify_".length);
+      const tokenDoc = await getPhoneVerifyToken(token);
+
+      if (!tokenDoc || tokenDoc.used) {
+        await sendMessage(chatId, "❌ Посилання недійсне або прострочене. Запросіть нове.");
+        return;
+      }
+
+      // Link telegramChatId to client + mark phoneVerified
+      await adminDb.collection("clients").doc(tokenDoc.clientId).update({
+        telegramChatId: String(chatId),
+        phoneVerified: true,
+        updatedAt: Timestamp.now(),
+      });
+
+      await markTokenVerified(token, String(chatId));
+
+      await sendMessage(chatId, "✅ Телефон підтверджено! Поверніться до застосунку.");
+      return;
     }
 
     if (payload) {

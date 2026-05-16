@@ -58,7 +58,13 @@ export default function RegisterPage() {
       }
 
       // Account created — go to verify page
-      router.push(`/verify?phone=${encodeURIComponent(normalizedPhone)}&rememberMe=false`);
+      const params = new URLSearchParams({
+        phone: normalizedPhone,
+        rememberMe: "false",
+        token: data.verifyToken ?? "",
+        telegramUrl: data.telegramUrl ?? "",
+      });
+      router.push(`/verify?${params.toString()}`);
     } catch {
       setError(t("errors.generic"));
     } finally {

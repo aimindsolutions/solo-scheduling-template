@@ -51,7 +51,13 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(`/verify?phone=${encodeURIComponent(normalizedPhone)}&rememberMe=${rememberMe}`);
+      const params = new URLSearchParams({
+        phone: normalizedPhone,
+        rememberMe: String(rememberMe),
+        token: data.verifyToken ?? "",
+        telegramUrl: data.telegramUrl ?? "",
+      });
+      router.push(`/verify?${params.toString()}`);
     } catch {
       setError(t("errors.generic"));
     } finally {

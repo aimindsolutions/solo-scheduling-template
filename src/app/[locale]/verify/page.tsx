@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter, usePathname } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -18,34 +18,23 @@ export default function VerifyPage() {
 
   const phone = searchParams.get("phone") ?? "";
   const rememberMe = searchParams.get("rememberMe") === "true";
+  const verifyToken = searchParams.get("token") ?? "";
+  const telegramUrlParam = searchParams.get("telegramUrl") ?? "";
 
   const [status, setStatus] = useState<"waiting" | "success" | "error">("waiting");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [telegramUrl, setTelegramUrl] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
+  const [telegramUrl, setTelegramUrl] = useState(telegramUrlParam);
 
-  // Fetch initial verify token / telegram deep link
+  // Poll for verification by checking the token status
   useEffect(() => {
-    if (!phone) return;
-    fetch("/api/auth/phone-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, rememberMe }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.telegramUrl) setTelegramUrl(d.telegramUrl);
-      })
-      .catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Poll for session cookie being set
-  useEffect(() => {
-    if (status !== "waiting") return;
+    if (status !== "waiting" || !verifyToken) return;
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/api/auth/client-session", { method: "GET" });
+        const res = await fetch(`/api/auth/client-session?verifyToken=${verifyToken}`, {
+          method: "GET",
+        });
         if (res.ok) {
           setStatus("success");
           clearInterval(interval);
@@ -55,7 +44,7 @@ export default function VerifyPage() {
     }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [status, router]);
+  }, [status, router, verifyToken]);
 
   // Resend cooldown countdown
   useEffect(() => {

@@ -96,6 +96,19 @@ export async function notifyClientOfConfirmation(appointment: {
   );
 }
 
+export async function notifyOwnerOfUnverifiedClient(client: {
+  name: string;
+  phone: string;
+}) {
+  const config = await getConfig();
+  if (!config?.ownerTelegramChatId) return;
+
+  await sendMessage(
+    config.ownerTelegramChatId,
+    `🆕 Новий клієнт: ${client.name}, ${client.phone} — не підтверджений. Перетелефонуйте для підтвердження.`
+  );
+}
+
 export async function notifyOwnerOfNewBooking(appointment: {
   clientName: string;
   dateTime: { toDate: () => Date } | Date;
