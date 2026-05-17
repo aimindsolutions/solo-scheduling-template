@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const { valid, clientId } = await validateSession(token);
   if (!valid || !clientId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const now = new Date().toISOString();
+  const now = new Date();
 
   const configSnap = await adminDb.collection("businessConfig").doc("main").get();
   const tz = configSnap.exists ? configSnap.data()!.timezone || "Europe/Kyiv" : "Europe/Kyiv";
