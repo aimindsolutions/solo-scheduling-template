@@ -142,17 +142,25 @@ export async function DELETE(
 
   const appointment = doc.data()!;
 
-  // Purge: hard-delete an already-cancelled record (no calendar/notification side-effects)
+  // Purge: hard-delete record from database regardless of status.
+  // Also cleans up calendar event and decrements the correct client counters.
   if (purge) {
-    if (appointment.status !== "cancelled") {
-      return NextResponse.json({ error: "Only cancelled appointments can be purged" }, { status: 400 });
+    if (appointment.googleCalendarEventId) {
+      try { await deleteCalendarEvent(appointment.googleCalendarEventId); } catch {}
     }
     await adminDb.collection("appointments").doc(id).delete();
     if (appointment.clientId) {
       try {
+        const counterField: Record<string, string> = {
+          confirmed: "confirmedAppointments",
+          completed: "completedAppointments",
+          cancelled: "cancelledAppointments",
+          no_show: "noShowAppointments",
+        };
+        const statusField = counterField[appointment.status as string];
         await adminDb.collection("clients").doc(appointment.clientId).update({
           totalAppointments: FieldValue.increment(-1),
-          cancelledAppointments: FieldValue.increment(-1),
+          ...(statusField ? { [statusField]: FieldValue.increment(-1) } : {}),
           updatedAt: Timestamp.now(),
         });
       } catch {}

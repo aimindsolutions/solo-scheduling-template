@@ -50,9 +50,12 @@ export async function PUT(request: NextRequest) {
 
   await adminDb.collection("magicTokens").doc(token).update({ used: true });
 
+  // Must use the same UID that OWNER_FIREBASE_UID is set to, otherwise
+  // verifyAdminAuth will reject all admin API calls after magic-token login.
+  const ownerUid = process.env.OWNER_FIREBASE_UID;
   const configSnap = await adminDb.collection("businessConfig").doc("main").get();
   const ownerEmail = configSnap.data()?.ownerEmail;
-  const uid = ownerEmail || `telegram:${data.chatId}`;
+  const uid = ownerUid || ownerEmail || `telegram:${data.chatId}`;
 
   const customToken = await adminAuth.createCustomToken(uid);
 
