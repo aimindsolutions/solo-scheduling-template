@@ -144,14 +144,14 @@ export default function AdminDashboardPage() {
   const inRange = (iso: string, from: string, to: string) => iso >= from && iso <= to;
 
   const statValues: Record<string, number> = {
-    today_all:        appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd)).length,
+    today_all:        appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd) && a.status !== "cancelled").length,
     today_confirmed:  appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd) && a.status === "confirmed").length,
     today_booked:     appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd) && a.status === "booked").length,
     today_cancelled:  appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd) && a.status === "cancelled").length,
-    week_all:         appointments.filter((a) => inRange(a.dateTime, weekStart, weekEnd)).length,
+    week_all:         appointments.filter((a) => inRange(a.dateTime, weekStart, weekEnd) && a.status !== "cancelled").length,
     week_confirmed:   appointments.filter((a) => inRange(a.dateTime, weekStart, weekEnd) && a.status === "confirmed").length,
     week_booked:      appointments.filter((a) => inRange(a.dateTime, weekStart, weekEnd) && a.status === "booked").length,
-    month_all:        appointments.filter((a) => inRange(a.dateTime, monthStartIso, monthEndIso)).length,
+    month_all:        appointments.filter((a) => inRange(a.dateTime, monthStartIso, monthEndIso) && a.status !== "cancelled").length,
     month_confirmed:  appointments.filter((a) => inRange(a.dateTime, monthStartIso, monthEndIso) && a.status === "confirmed").length,
     month_booked:     appointments.filter((a) => inRange(a.dateTime, monthStartIso, monthEndIso) && a.status === "booked").length,
     upcoming_all:     appointments.filter((a) => a.dateTime > nowIso && a.status !== "cancelled").length,
