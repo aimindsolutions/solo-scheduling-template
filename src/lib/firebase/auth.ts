@@ -1,6 +1,8 @@
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithCustomToken as firebaseSignInWithCustomToken,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
@@ -33,6 +35,20 @@ export function onAuthChange(callback: (user: User | null) => void) {
 
 export async function getGoogleIdToken(): Promise<string> {
   const result = await signInWithPopup(auth, googleProvider);
+  const idToken = await result.user.getIdToken();
+  await firebaseSignOut(auth);
+  return idToken;
+}
+
+export async function signInWithGoogleRedirect(): Promise<void> {
+  return signInWithRedirect(auth, googleProvider);
+}
+
+// Call on page load to capture the ID token after a redirect sign-in completes.
+// Returns null on normal page loads (no pending redirect).
+export async function getGoogleIdTokenFromRedirect(): Promise<string | null> {
+  const result = await getRedirectResult(auth);
+  if (!result) return null;
   const idToken = await result.user.getIdToken();
   await firebaseSignOut(auth);
   return idToken;

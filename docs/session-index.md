@@ -8,3 +8,6 @@
 | 2026-05-12 | Timezone handling, admin authentication, transactional booking, breaks & vacation days | `ba4290f` | [retrospective](retrospectives/2026-05-12-timezone-admin-auth-transactions.md) |
 | 2026-05-12 | Telegram bot menu fixes, owner commands, consent message UX, web links in notifications | `364cecc`, `0c5f90d`, `5c8a78f`, `ed1d562` | [retrospective](retrospectives/2026-05-12-telegram-bot-menu-and-links.md) |
 | 2026-05-13 | Production hardening (9 issues), cancel confirmation flow with reason, phone normalization, admin cancelled toggle, booking prefill | `164b914`, `c79991f`, `b22cab7`, `b39d5ae`, `100cbbd` | [retrospective](retrospectives/2026-05-13-production-hardening-cancel-flow.md) |
+| 2026-05-17 | Client auth P0–P6, Telegram security, booking prefill, auto-confirm, cabinet empty fix | `9c48a26`, `f0aa581`, `1876b52` | (see known-issues log) |
+| 2026-05-17 | Calendar 1W/2W/1M toggle, Google OAuth for clients, calendar perf, P9 polish, admin notes, purge cancelled | `247d40c`, `012562c`, `5093d01`, `ab6f849`, `5fa9360`, `367dfab` | [retrospective](retrospectives/2026-05-17-calendar-oauth-admin-polish.md) |
+| 2026-05-17 | Security hardening: OWNER_FIREBASE_UID guard activated, iOS Safari OAuth redirect fallback | TBD | (see retrospective above — risks resolved) |

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft } from "lucide-react";
 import { normalizePhone } from "@/lib/utils";
-import { getGoogleIdToken } from "@/lib/firebase/auth";
+import { getGoogleIdToken, signInWithGoogleRedirect, getGoogleIdTokenFromRedirect } from "@/lib/firebase/auth";
 
 export default function LoginPage() {
   const t = useTranslations("auth.login");
@@ -22,6 +22,31 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function handleRedirectReturn() {
+      try {
+        const idToken = await getGoogleIdTokenFromRedirect();
+        if (!idToken) return;
+        setLoading(true);
+        const res = await fetch("/api/auth/google-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+        });
+        if (res.ok) {
+          router.push("/client/dashboard");
+        } else {
+          setError(t("errors.googleFailed"));
+          setLoading(false);
+        }
+      } catch {
+        // No pending redirect result — normal page load, do nothing
+      }
+    }
+    handleRedirectReturn();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleGoogleLogin() {
     setError(null);
@@ -38,7 +63,12 @@ export default function LoginPage() {
       } else {
         setError(t("errors.googleFailed"));
       }
-    } catch {
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code === "auth/popup-blocked") {
+        await signInWithGoogleRedirect();
+        return; // browser navigates away
+      }
       setError(t("errors.googleFailed"));
     } finally {
       setLoading(false);
