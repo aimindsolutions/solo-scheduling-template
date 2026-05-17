@@ -18,6 +18,7 @@ import {
   startOfWeek,
   startOfMonth,
   endOfMonth,
+  endOfDay,
   eachDayOfInterval,
   getDay,
   addDays,
@@ -79,7 +80,7 @@ export default function AdminCalendarPage() {
   const { rangeStart, rangeEnd, days, monthCells } = (() => {
     if (view === "1w") {
       const start = weekStart;
-      const end = addDays(weekStart, 6);
+      const end = endOfDay(addDays(weekStart, 6));
       return {
         rangeStart: start,
         rangeEnd: end,
@@ -89,7 +90,7 @@ export default function AdminCalendarPage() {
     }
     if (view === "2w") {
       const start = weekStart;
-      const end = addDays(weekStart, 13);
+      const end = endOfDay(addDays(weekStart, 13));
       return {
         rangeStart: start,
         rangeEnd: end,
