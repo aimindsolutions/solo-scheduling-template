@@ -21,5 +21,6 @@ export async function GET(request: NextRequest) {
     lastName: (d.lastName as string) || "",
     phone: d.phone as string,
     email: (d.email as string) || "",
+    telegramChatId: (d.telegramChatId as string) || null,
   });
 }

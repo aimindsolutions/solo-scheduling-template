@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatInTimeZone } from "@/lib/date-utils";
 import type { AppointmentStatus } from "@/types";
 import { LanguageSwitcher } from "@/components/shared/language-switcher";
+import { QRCodeSVG } from "qrcode.react";
 
 interface AppointmentRow {
   id: string;
@@ -39,21 +40,23 @@ export default function ClientDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [telegramChatId, setTelegramChatId] = useState<string | null | undefined>(undefined);
+  const [telegramUrl, setTelegramUrl] = useState<string | null>(null);
+  const [loadingTelegramLink, setLoadingTelegramLink] = useState(false);
 
   useEffect(() => {
-    fetch("/api/client/appointments")
-      .then((r) => {
-        if (r.status === 401) {
-          router.push("/login");
-          return null;
-        }
-        return r.json();
-      })
-      .then((d) => {
-        if (d) setData(d);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/client/appointments"),
+      fetch("/api/client/profile"),
+    ]).then(async ([aptsRes, profileRes]) => {
+      if (aptsRes.status === 401) { router.push("/login"); return; }
+      const aptsData = await aptsRes.json().catch(() => null);
+      if (aptsData) setData(aptsData);
+      if (profileRes.ok) {
+        const profile = await profileRes.json().catch(() => null);
+        setTelegramChatId(profile?.telegramChatId ?? null);
+      }
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [router]);
 
   async function handleConfirm(id: string) {
@@ -98,6 +101,20 @@ export default function ClientDashboardPage() {
     }
   }
 
+  async function handleConnectTelegram() {
+    if (telegramUrl) return; // already generated — just show it
+    setLoadingTelegramLink(true);
+    try {
+      const res = await fetch("/api/client/telegram-link", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setTelegramUrl(data.telegramUrl);
+      }
+    } finally {
+      setLoadingTelegramLink(false);
+    }
+  }
+
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
@@ -116,6 +133,36 @@ export default function ClientDashboardPage() {
       </header>
 
       <main className="flex-1 px-4 py-8 max-w-2xl mx-auto w-full">
+        <div className="space-y-6">
+
+        {/* Connect Telegram banner — shown only when telegramChatId is null */}
+        {telegramChatId === null && (
+          <div className="rounded-lg border bg-muted/40 p-4 space-y-3 text-center">
+            <p className="font-medium text-sm">{t("connectTelegramTitle")}</p>
+            <p className="text-xs text-muted-foreground">{t("connectTelegramDesc")}</p>
+            {!telegramUrl ? (
+              <Button
+                size="sm"
+                className="w-full"
+                disabled={loadingTelegramLink}
+                onClick={handleConnectTelegram}
+              >
+                {loadingTelegramLink ? tCommon("loading") : t("connectTelegramBtn")}
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <a href={telegramUrl} target="_blank" rel="noopener noreferrer" className="block">
+                  <Button size="sm" className="w-full">{t("connectTelegramBtn")}</Button>
+                </a>
+                <p className="text-xs text-muted-foreground">{t("connectTelegramQr")}</p>
+                <div className="flex justify-center">
+                  <QRCodeSVG value={telegramUrl} size={140} className="rounded-lg border p-2 bg-white" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">{t("upcoming")}</h2>
@@ -176,6 +223,7 @@ export default function ClientDashboardPage() {
               </div>
             );
           })}
+        </div>
         </div>
       </main>
     </div>

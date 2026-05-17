@@ -143,7 +143,11 @@
       "logout": "Sign Out",
       "preferredChannel": "Notification channel",
       "telegram": "Telegram",
-      "email": "Email"
+      "email": "Email",
+      "connectTelegramTitle": "Connect Telegram for reminders",
+      "connectTelegramDesc": "Open the bot to confirm appointments and receive reminders",
+      "connectTelegramBtn": "Open Telegram Bot",
+      "connectTelegramQr": "or scan the QR code"
     }
   }
 }

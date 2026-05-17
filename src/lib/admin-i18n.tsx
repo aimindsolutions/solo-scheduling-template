@@ -70,6 +70,7 @@ export type AdminT = {
   badge_oftenCancels: string;
   badge_reliable: string;
   badge_unverified: string;
+  badge_noReminders: string;
   visitsLabel: (n: number) => string;
   // Client detail page
   clientNotFound: string;
@@ -82,7 +83,15 @@ export type AdminT = {
   phoneLabel: string;
   telegramLabel: string;
   telegramConnected: string;
+  telegramNotConnected: string;
   clientSince: string;
+  confirmPhone: string;
+  confirmingPhone: string;
+  phoneConfirmed: string;
+  generateTelegramLink: string;
+  telegramLinkTitle: string;
+  telegramLinkCopy: string;
+  telegramLinkCopied: string;
   statistics: string;
   stat_total: string;
   stat_confirmed: string;
@@ -214,6 +223,7 @@ const en: AdminT = {
   badge_oftenCancels: "Often cancels",
   badge_reliable: "Reliable",
   badge_unverified: "Unverified",
+  badge_noReminders: "No reminders",
   visitsLabel: (n) => `${n} visits`,
   clientNotFound: "Client not found",
   book: "Book",
@@ -225,7 +235,15 @@ const en: AdminT = {
   phoneLabel: "Phone: ",
   telegramLabel: "Telegram: ",
   telegramConnected: "connected",
+  telegramNotConnected: "not connected",
   clientSince: "Client since: ",
+  confirmPhone: "Confirm phone",
+  confirmingPhone: "Confirming...",
+  phoneConfirmed: "Phone confirmed",
+  generateTelegramLink: "Generate Telegram link",
+  telegramLinkTitle: "Share this link with the client",
+  telegramLinkCopy: "Copy link",
+  telegramLinkCopied: "Copied!",
   statistics: "Statistics",
   stat_total: "Total",
   stat_confirmed: "Confirmed",
@@ -370,6 +388,7 @@ const uk: AdminT = {
   badge_oftenCancels: "Часто скасовує",
   badge_reliable: "Надійний",
   badge_unverified: "Не верифікований",
+  badge_noReminders: "Без нагадувань",
   visitsLabel: (n) => `${n} візитів`,
   clientNotFound: "Клієнт не знайдений",
   book: "Записати",
@@ -381,7 +400,15 @@ const uk: AdminT = {
   phoneLabel: "Телефон: ",
   telegramLabel: "Telegram: ",
   telegramConnected: "підключено",
+  telegramNotConnected: "не підключено",
   clientSince: "Клієнт з: ",
+  confirmPhone: "Підтвердити телефон",
+  confirmingPhone: "Підтвердження...",
+  phoneConfirmed: "Телефон підтверджено",
+  generateTelegramLink: "Згенерувати посилання Telegram",
+  telegramLinkTitle: "Поділіться цим посиланням з клієнтом",
+  telegramLinkCopy: "Копіювати посилання",
+  telegramLinkCopied: "Скопійовано!",
   statistics: "Статистика",
   stat_total: "Усього",
   stat_confirmed: "Підтверджено",

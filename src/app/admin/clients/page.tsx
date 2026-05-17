@@ -28,6 +28,7 @@ interface ClientData {
   cancelledAppointments: number;
   noShowAppointments: number;
   phoneVerified?: boolean;
+  telegramChatId?: string | null;
   authMethods?: string[];
 }
 
@@ -53,11 +54,10 @@ export default function AdminClientsPage() {
   }, [search]);
 
   function getVerificationBadge(client: ClientData) {
-    const hasAuth = client.authMethods && client.authMethods.length > 0;
-    if (hasAuth && client.phoneVerified) return null;
-    if (hasAuth && !client.phoneVerified)
-      return <Badge variant="outline" className="border-orange-400 text-orange-600 text-xs">{t.badge_unverified}</Badge>;
-    return null;
+    if (client.telegramChatId) return null;
+    if (client.phoneVerified)
+      return <Badge variant="outline" className="border-gray-400 text-gray-500 text-xs">{t.badge_noReminders}</Badge>;
+    return <Badge variant="outline" className="border-orange-400 text-orange-600 text-xs">{t.badge_unverified}</Badge>;
   }
 
   function getReliabilityBadge(client: ClientData) {

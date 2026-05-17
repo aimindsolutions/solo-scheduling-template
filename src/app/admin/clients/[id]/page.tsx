@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   Pencil, Trash2, Save, X, CalendarPlus, ChevronLeft, ChevronRight,
-  Calendar, XCircle,
+  Calendar, XCircle, CheckCircle, Link2,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { adminFetch } from "@/lib/api-client";
 import { useAdminLang } from "@/lib/admin-i18n";
 import { formatInTimeZone } from "@/lib/date-utils";
@@ -35,7 +36,8 @@ interface ClientDetail {
   phone: string;
   email?: string;
   language?: string;
-  telegramChatId?: string;
+  telegramChatId?: string | null;
+  phoneVerified?: boolean;
   adminNotes?: string;
   totalAppointments: number;
   confirmedAppointments: number;
@@ -166,6 +168,11 @@ export default function ClientDetailPage() {
   const [rescheduleTime, setRescheduleTime] = useState<string | null>(null);
 
   // Booking dialog state
+  const [confirmingPhone, setConfirmingPhone] = useState(false);
+  const [showTelegramLink, setShowTelegramLink] = useState(false);
+  const [telegramLinkUrl, setTelegramLinkUrl] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [showBooking, setShowBooking] = useState(false);
   const [bookingMonth, setBookingMonth] = useState(() => startOfMonth(new Date()));
   const [bookingActiveDate, setBookingActiveDate] = useState<string | null>(null);
@@ -279,6 +286,40 @@ export default function ClientDetailPage() {
     } finally {
       setAptActionSaving(false);
     }
+  }
+
+  async function handleConfirmPhone() {
+    setConfirmingPhone(true);
+    await adminFetch(`/api/clients/${clientId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneVerified: true }),
+    });
+    setConfirmingPhone(false);
+    await fetchData();
+  }
+
+  async function handleGenerateTelegramLink() {
+    setGeneratingLink(true);
+    try {
+      const res = await adminFetch(`/api/admin/clients/${clientId}/telegram-link`, { method: "POST" });
+      const data = await res.json();
+      if (data.telegramUrl) {
+        setTelegramLinkUrl(data.telegramUrl);
+        setShowTelegramLink(true);
+        setLinkCopied(false);
+      }
+    } finally {
+      setGeneratingLink(false);
+    }
+  }
+
+  function handleCopyLink() {
+    if (!telegramLinkUrl) return;
+    navigator.clipboard.writeText(telegramLinkUrl).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
   }
 
   async function handleBookingSubmit() {
@@ -400,11 +441,44 @@ export default function ClientDetailPage() {
               <div className="space-y-2 text-sm">
                 <div><span className="text-muted-foreground">{t.phoneLabel}</span>{client.phone}</div>
                 {client.email && <div><span className="text-muted-foreground">{t.emailLabel}</span>{client.email}</div>}
-                {client.telegramChatId && <div><span className="text-muted-foreground">{t.telegramLabel}</span>{t.telegramConnected}</div>}
+                <div>
+                  <span className="text-muted-foreground">{t.telegramLabel}</span>
+                  {client.telegramChatId ? (
+                    <span className="text-green-600 dark:text-green-400">{t.telegramConnected}</span>
+                  ) : (
+                    <span className="text-muted-foreground">{t.telegramNotConnected}</span>
+                  )}
+                </div>
                 <div>
                   <span className="text-muted-foreground">{t.clientSince}</span>
                   {client.createdAt ? formatInTimeZone(client.createdAt, timezone, "dd.MM.yyyy") : "—"}
                 </div>
+                {!client.telegramChatId && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {!client.phoneVerified && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 gap-1"
+                        disabled={confirmingPhone}
+                        onClick={handleConfirmPhone}
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        {confirmingPhone ? t.confirmingPhone : t.confirmPhone}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7 gap-1"
+                      disabled={generatingLink}
+                      onClick={handleGenerateTelegramLink}
+                    >
+                      <Link2 className="h-3 w-3" />
+                      {t.generateTelegramLink}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -657,6 +731,34 @@ export default function ClientDetailPage() {
             >
               {aptActionSaving ? t.saving : t.reschedule}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Telegram link dialog ────────────────────────────────── */}
+      <Dialog open={showTelegramLink} onOpenChange={setShowTelegramLink}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>{t.generateTelegramLink}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{t.telegramLinkTitle}</p>
+          {telegramLinkUrl && (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <QRCodeSVG value={telegramLinkUrl} size={160} className="rounded-lg border p-2 bg-white" />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={telegramLinkUrl}
+                  className="flex-1 text-xs bg-muted rounded px-2 py-1.5 truncate border"
+                />
+                <Button size="sm" variant="outline" onClick={handleCopyLink}>
+                  {linkCopied ? t.telegramLinkCopied : t.telegramLinkCopy}
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTelegramLink(false)}>{t.cancel}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
