@@ -29,7 +29,7 @@ interface ClientProfile {
 interface BookingFormProps {
   date: string;
   time: string;
-  onSuccess: (appointmentId: string) => void;
+  onSuccess: (appointmentId: string, telegramSent?: boolean) => void;
   clientProfile?: ClientProfile;
 }
 
@@ -137,7 +137,7 @@ export function BookingForm({ date, time, onSuccess, clientProfile }: BookingFor
           email: formData.email,
         }));
       } catch {}
-      onSuccess(data.appointmentId);
+      onSuccess(data.appointmentId, data.telegramSent);
     } catch (err) {
       setErrors({ form: err instanceof Error ? err.message : "Unknown error" });
     } finally {
@@ -159,21 +159,23 @@ export function BookingForm({ date, time, onSuccess, clientProfile }: BookingFor
             <p className="text-muted-foreground">{clientProfile.phone}</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="notes">{t("booking.form.notes")}</Label>
-              <Input
-                id="notes"
-                placeholder={t("booking.form.notesPlaceholder")}
-                value={formData.notes}
-                onChange={(e) => updateField("notes", e.target.value)}
-              />
-            </div>
-            {errors.form && (
-              <p className="text-sm text-destructive">{errors.form}</p>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t("common.loading") : t("booking.submit")}
-            </Button>
+            <fieldset disabled={loading} className="space-y-4 disabled:opacity-60">
+              <div className="space-y-2">
+                <Label htmlFor="notes">{t("booking.form.notes")}</Label>
+                <Input
+                  id="notes"
+                  placeholder={t("booking.form.notesPlaceholder")}
+                  value={formData.notes}
+                  onChange={(e) => updateField("notes", e.target.value)}
+                />
+              </div>
+              {errors.form && (
+                <p className="text-sm text-destructive">{errors.form}</p>
+              )}
+              <Button type="submit" className="w-full">
+                {loading ? t("common.loading") : t("booking.submit")}
+              </Button>
+            </fieldset>
           </form>
         </CardContent>
       </Card>
@@ -202,6 +204,7 @@ export function BookingForm({ date, time, onSuccess, clientProfile }: BookingFor
           </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
+          <fieldset disabled={loading} className="space-y-4 disabled:opacity-60">
           <div className="space-y-2">
             <Label htmlFor="firstName">{t("booking.form.firstName")} *</Label>
             <Input
@@ -284,9 +287,10 @@ export function BookingForm({ date, time, onSuccess, clientProfile }: BookingFor
             <p className="text-sm text-destructive">{errors.form}</p>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full">
             {loading ? t("common.loading") : t("booking.submit")}
           </Button>
+          </fieldset>
         </form>
       </CardContent>
     </Card>

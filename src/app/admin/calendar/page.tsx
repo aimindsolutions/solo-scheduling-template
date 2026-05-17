@@ -13,7 +13,18 @@ import {
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Eye, Trash2, CheckCircle, EyeOff } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
-import { format, startOfWeek, addDays, isSameDay } from "date-fns";
+import {
+  format,
+  startOfWeek,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  getDay,
+  addDays,
+  addMonths,
+  isSameDay,
+  isSameMonth,
+} from "date-fns";
 import { formatInTimeZone } from "@/lib/date-utils";
 
 interface AppointmentData {
@@ -51,6 +62,7 @@ export default function AdminCalendarPage() {
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
+  const [monthStart, setMonthStart] = useState(() => startOfMonth(new Date()));
   const [loading, setLoading] = useState(true);
   const [showCancelled, setShowCancelled] = useState(false);
   const [selectedApt, setSelectedApt] = useState<AppointmentData | null>(null);
@@ -97,7 +109,22 @@ export default function AdminCalendarPage() {
     return formatInTimeZone(iso, timezone, "yyyy-MM-dd");
   }
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // Month grid: Mon-aligned, with leading blank cells
+  const monthFirst = startOfMonth(monthStart);
+  const monthLast = endOfMonth(monthStart);
+  const monthDays = eachDayOfInterval({ start: monthFirst, end: monthLast });
+  const leadingBlanks = (getDay(monthFirst) + 6) % 7; // 0=Mon…6=Sun
+  const monthCells: (Date | null)[] = [
+    ...Array(leadingBlanks).fill(null),
+    ...monthDays,
+  ];
+  // Pad to complete last row
+  const remainder = monthCells.length % 7;
+  if (remainder > 0) {
+    monthCells.push(...Array(7 - remainder).fill(null));
+  }
 
   async function handleStatusChange(aptId: string, newStatus: string) {
     await adminFetch(`/api/appointments/${aptId}`, {
@@ -115,6 +142,59 @@ export default function AdminCalendarPage() {
     setConfirmAction(null);
     setSelectedApt(null);
     await fetchAppointments();
+  }
+
+  function DayCell({ day, compact = false }: { day: Date; compact?: boolean }) {
+    const dayStr = format(day, "yyyy-MM-dd");
+    const dayAppointments = appointments
+      .filter((a) => getAptDateStr(a.dateTime) === dayStr && (showCancelled || a.status !== "cancelled"))
+      .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+    const isToday = isSameDay(day, new Date());
+    const isCurrentMonth = isSameMonth(day, monthStart);
+
+    return (
+      <Card className={`${isToday ? "border-primary" : ""} ${compact && !isCurrentMonth ? "opacity-40" : ""}`}>
+        <CardHeader className="p-2 pb-1">
+          <div className="flex items-center justify-between">
+            <CardTitle
+              className={`text-xs ${isToday ? "text-primary font-bold" : "text-muted-foreground"}`}
+            >
+              {compact ? format(day, "d") : format(day, "EEE d")}
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={() => setDayView(day)}
+            >
+              <Eye className="h-3 w-3" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className={`p-2 pt-0 space-y-0.5 ${compact ? "min-h-[60px]" : "min-h-[100px]"}`}>
+          {dayAppointments.map((apt) => (
+            <button
+              key={apt.id}
+              onClick={() => setSelectedApt(apt)}
+              className={`w-full text-left text-xs p-1 rounded border flex items-center gap-1 hover:bg-accent transition-colors cursor-pointer ${apt.status === "cancelled" ? "opacity-50" : ""}`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot[apt.status] || ""}`} />
+              <span className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>
+                {fmtTime(apt.dateTime)}
+              </span>
+              {!compact && (
+                <span className={`truncate text-muted-foreground ${apt.status === "cancelled" ? "line-through" : ""}`}>
+                  {apt.clientName}
+                </span>
+              )}
+            </button>
+          ))}
+          {dayAppointments.length === 0 && (
+            <p className="text-xs text-muted-foreground">—</p>
+          )}
+        </CardContent>
+      </Card>
+    );
   }
 
   function AppointmentDetailDialog() {
@@ -329,99 +409,94 @@ export default function AdminCalendarPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Calendar</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowCancelled((v) => !v)}
-            className="gap-2"
-          >
-            {showCancelled ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {showCancelled ? "Hide cancelled" : "Show cancelled"}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeekStart((d) => addDays(d, -7))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[200px] text-center">
-            {format(weekStart, "d MMM")} —{" "}
-            {format(addDays(weekStart, 6), "d MMM yyyy")}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeekStart((d) => addDays(d, 7))}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowCancelled((v) => !v)}
+          className="gap-1.5 shrink-0"
+        >
+          {showCancelled ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          <span className="hidden sm:inline">{showCancelled ? "Hide cancelled" : "Show cancelled"}</span>
+        </Button>
       </div>
 
       {loading ? (
         <div className="text-muted-foreground">Loading...</div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
-          {days.map((day) => {
-            const dayStr = format(day, "yyyy-MM-dd");
-            const dayAppointments = appointments
-              .filter((a) => getAptDateStr(a.dateTime) === dayStr && (showCancelled || a.status !== "cancelled"))
-              .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
-            const isToday = isSameDay(day, new Date());
-
-            return (
-              <Card
-                key={day.toISOString()}
-                className={isToday ? "border-primary" : ""}
+        <>
+          {/* Mobile: week view */}
+          <div className="md:hidden space-y-3">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => setWeekStart((d) => addDays(d, -7))}
               >
-                <CardHeader className="p-3 pb-1">
-                  <div className="flex items-center justify-between">
-                    <CardTitle
-                      className={`text-sm ${isToday ? "text-primary" : "text-muted-foreground"}`}
-                    >
-                      {format(day, "EEE d")}
-                    </CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => setDayView(day)}
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3 pt-1 space-y-1 min-h-[120px]">
-                  {dayAppointments.map((apt) => (
-                    <button
-                      key={apt.id}
-                      onClick={() => setSelectedApt(apt)}
-                      className={`w-full text-left text-sm p-1.5 rounded border flex items-center gap-1.5 hover:bg-accent transition-colors cursor-pointer ${apt.status === "cancelled" ? "opacity-50" : ""}`}
-                    >
-                      <div
-                        className={`w-2 h-2 rounded-full shrink-0 ${statusDot[apt.status] || ""}`}
-                      />
-                      <span className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>
-                        {fmtTime(apt.dateTime)}
-                      </span>
-                      <span className={`truncate text-muted-foreground ${apt.status === "cancelled" ? "line-through" : ""}`}>
-                        {apt.clientName}
-                      </span>
-                    </button>
-                  ))}
-                  {dayAppointments.length === 0 && (
-                    <p className="text-xs text-muted-foreground">—</p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium flex-1 text-center">
+                {format(weekStart, "d MMM")} — {format(addDays(weekStart, 6), "d MMM yyyy")}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => setWeekStart((d) => addDays(d, 7))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {weekDays.map((day) => (
+                <DayCell key={day.toISOString()} day={day} compact />
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop: month view */}
+          <div className="hidden md:block space-y-3">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setMonthStart((d) => startOfMonth(addMonths(d, -1)))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium flex-1 text-center">
+                {format(monthStart, "MMMM yyyy")}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setMonthStart((d) => startOfMonth(addMonths(d, 1)))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            {/* Weekday header row */}
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                <div key={d} className="text-xs text-center font-medium text-muted-foreground py-1">
+                  {d}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {monthCells.map((day, i) =>
+                day ? (
+                  <DayCell key={day.toISOString()} day={day} compact />
+                ) : (
+                  <div key={`blank-${i}`} />
+                )
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       <AppointmentDetailDialog />

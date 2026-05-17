@@ -169,19 +169,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let telegramSent = false;
   try {
-    const { notifyOwnerOfNewBooking } = await import("@/lib/telegram/notifications");
+    const { notifyOwnerOfNewBooking, sendAppointmentConfirmationRequest } = await import("@/lib/telegram/notifications");
     await notifyOwnerOfNewBooking({
       clientName: `${firstName}${lastName ? " " + lastName : ""}`,
       dateTime: Timestamp.fromDate(dateTime),
       phone,
     });
+    // For non-logged-in clients who have a linked Telegram, proactively send confirmation
+    if (!autoConfirm) {
+      telegramSent = await sendAppointmentConfirmationRequest({
+        clientId,
+        appointmentId: appointmentRef.id,
+        dateTime: Timestamp.fromDate(dateTime),
+      });
+    }
   } catch {}
 
   return NextResponse.json({
     appointmentId: appointmentRef.id,
     clientId,
     status: autoConfirm ? "confirmed" : "booked",
+    telegramSent,
   });
 }
 

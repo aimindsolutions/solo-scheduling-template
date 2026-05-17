@@ -48,6 +48,8 @@
       "message": "Ваш запис на {date} о {time} створено.",
       "telegramPrompt": "Підтвердіть запис через Telegram для отримання нагадувань:",
       "openTelegram": "Відкрити Telegram бот",
+      "telegramSent": "Ми надіслали вам повідомлення в Telegram. Підтвердіть запис там або увійдіть в кабінет:",
+      "loginToConfirm": "Увійти та підтвердити",
       "addToCalendar": "Додати в календар",
       "googleCalendar": "Google Calendar",
       "downloadIcs": "Завантажити .ics файл",
@@ -124,6 +126,8 @@
         "completed": "Завершено",
         "no_show": "Не з'явився"
       },
+      "confirm": "Підтвердити",
+      "confirmConfirm": "Підтвердити цей запис?",
       "cancel": "Скасувати запис",
       "reschedule": "Перенести",
       "cancelConfirm": "Ви впевнені, що хочете скасувати цей запис?",

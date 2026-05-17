@@ -16,6 +16,7 @@ export default function BookingSuccessPage() {
   const date = searchParams.get("date") || "";
   const time = searchParams.get("time") || "";
   const appointmentId = searchParams.get("id") || "";
+  const telegramLinked = searchParams.get("linked") === "1";
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -48,7 +49,23 @@ export default function BookingSuccessPage() {
               {t("message", { date, time })}
             </p>
 
-            {!isLoggedIn && (
+            {!isLoggedIn && telegramLinked && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium">{t("telegramSent")}</p>
+                <a href={telegramBotUrl} target="_blank" rel="noopener noreferrer">
+                  <Button className="w-full" variant="default">
+                    {t("openTelegram")}
+                  </Button>
+                </a>
+                <Link href="/login" className="block">
+                  <Button variant="outline" className="w-full">
+                    {t("loginToConfirm")}
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {!isLoggedIn && !telegramLinked && (
               <div className="space-y-3">
                 <p className="text-sm font-medium">{t("telegramPrompt")}</p>
                 <a href={telegramBotUrl} target="_blank" rel="noopener noreferrer">

@@ -137,7 +137,8 @@ export default function AdminSettingsPage() {
       if (res.ok) {
         setMessage("Settings saved!");
       } else {
-        setMessage("Failed to save settings");
+        const body = await res.json().catch(() => ({}));
+        setMessage(body.error || "Failed to save settings");
       }
     } catch {
       setMessage("Failed to save settings");

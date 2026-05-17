@@ -1,6 +1,6 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { sendMessage, buildInlineKeyboard } from "./bot";
-import { clientCancelledNotifyOwner, ownerCancelledNotifyClient, clientConfirmedNotifyOwner, ownerConfirmedNotifyClient } from "./messages";
+import { clientCancelledNotifyOwner, ownerCancelledNotifyClient, clientConfirmedNotifyOwner, ownerConfirmedNotifyClient, confirmationMessage } from "./messages";
 import { formatInTimeZone } from "@/lib/date-utils";
 
 async function getConfig() {
@@ -107,6 +107,42 @@ export async function notifyOwnerOfUnverifiedClient(client: {
     config.ownerTelegramChatId,
     `🆕 Новий клієнт: ${client.name}, ${client.phone} — не підтверджений. Перетелефонуйте для підтвердження.`
   );
+}
+
+export async function sendAppointmentConfirmationRequest({
+  clientId,
+  appointmentId,
+  dateTime,
+}: {
+  clientId: string;
+  appointmentId: string;
+  dateTime: { toDate: () => Date } | Date;
+}): Promise<boolean> {
+  const config = await getConfig();
+  const serviceName = config?.serviceName || "Appointment";
+  const tz = config?.timezone || "Europe/Kyiv";
+
+  const clientDoc = await adminDb.collection("clients").doc(clientId).get();
+  if (!clientDoc.exists) return false;
+  const client = clientDoc.data()!;
+  if (!client.telegramChatId) return false;
+
+  const lang = client.language || "uk";
+  const date = toDate(dateTime);
+
+  await sendMessage(
+    client.telegramChatId,
+    confirmationMessage(lang, { date, serviceName, timezone: tz }),
+    {
+      replyMarkup: buildInlineKeyboard([
+        [
+          { text: lang === "uk" ? "✅ Підтвердити" : "✅ Confirm", callbackData: `confirm:${appointmentId}` },
+          { text: lang === "uk" ? "❌ Скасувати" : "❌ Cancel", callbackData: `cancel:${appointmentId}` },
+        ],
+      ]),
+    }
+  );
+  return true;
 }
 
 export async function notifyOwnerOfNewBooking(appointment: {

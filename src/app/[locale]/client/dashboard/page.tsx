@@ -37,6 +37,7 @@ export default function ClientDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/client/appointments")
@@ -53,6 +54,28 @@ export default function ClientDashboardPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);
+
+  async function handleConfirm(id: string) {
+    if (!confirm(t("confirmConfirm"))) return;
+    setConfirmingId(id);
+    try {
+      const res = await fetch(`/api/client/appointments/${id}/confirm`, { method: "POST" });
+      if (res.ok) {
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                appointments: prev.appointments.map((a) =>
+                  a.id === id ? { ...a, status: "confirmed" as const } : a
+                ),
+              }
+            : prev
+        );
+      }
+    } finally {
+      setConfirmingId(null);
+    }
+  }
 
   async function handleCancel(id: string) {
     if (!confirm(t("cancelConfirm"))) return;
@@ -121,7 +144,17 @@ export default function ClientDashboardPage() {
                     {t(`status.${apt.status}`)}
                   </Badge>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap justify-end">
+                  {apt.status === "booked" && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      disabled={confirmingId === apt.id}
+                      onClick={() => handleConfirm(apt.id)}
+                    >
+                      {t("confirm")}
+                    </Button>
+                  )}
                   <Link href={`/client/reschedule/${apt.id}`}>
                     <Button variant="outline" size="sm">
                       {t("reschedule")}

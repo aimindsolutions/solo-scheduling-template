@@ -48,6 +48,8 @@
       "message": "Your appointment on {date} at {time} has been created.",
       "telegramPrompt": "Confirm your booking via Telegram to receive reminders:",
       "openTelegram": "Open Telegram Bot",
+      "telegramSent": "We sent you a message in Telegram. Confirm your booking there or log in to confirm here:",
+      "loginToConfirm": "Log in to confirm",
       "addToCalendar": "Add to Calendar",
       "googleCalendar": "Google Calendar",
       "downloadIcs": "Download .ics file",
@@ -124,6 +126,8 @@
         "completed": "Completed",
         "no_show": "No Show"
       },
+      "confirm": "Confirm",
+      "confirmConfirm": "Confirm this appointment?",
       "cancel": "Cancel Appointment",
       "reschedule": "Reschedule",
       "cancelConfirm": "Are you sure you want to cancel this appointment?",

@@ -67,9 +67,10 @@ export default function BookPage() {
               date={selectedDate}
               time={selectedTime}
               clientProfile={clientProfile ?? undefined}
-              onSuccess={(appointmentId) => {
+              onSuccess={(appointmentId, telegramSent) => {
+                const extra = telegramSent ? "&linked=1" : "";
                 router.push(
-                  `/book/success?id=${appointmentId}&date=${selectedDate}&time=${selectedTime}`
+                  `/book/success?id=${appointmentId}&date=${selectedDate}&time=${selectedTime}${extra}`
                 );
               }}
             />

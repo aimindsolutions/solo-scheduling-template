@@ -92,6 +92,25 @@ export async function updateCalendarEvent(
   });
 }
 
+export async function updateCalendarEventTimezone(
+  eventId: string,
+  startTime: Date,
+  durationMinutes: number,
+  timeZone: string
+) {
+  const calendar = getCalendarClient();
+  const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+
+  await calendar.events.patch({
+    calendarId: CALENDAR_ID,
+    eventId,
+    requestBody: {
+      start: { dateTime: startTime.toISOString(), timeZone },
+      end: { dateTime: endTime.toISOString(), timeZone },
+    },
+  });
+}
+
 export async function listCalendarEvents(timeMin: Date, timeMax: Date) {
   const calendar = getCalendarClient();
 
