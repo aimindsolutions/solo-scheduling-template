@@ -32,6 +32,7 @@ export async function PUT(request: NextRequest) {
     ownerEmail,
     jurisdiction,
     languages,
+    dashboardCards,
   } = body;
 
   // Validate break slots if provided
@@ -69,6 +70,7 @@ export async function PUT(request: NextRequest) {
   if (ownerEmail !== undefined) configUpdates.ownerEmail = ownerEmail;
   if (jurisdiction !== undefined) configUpdates.jurisdiction = jurisdiction;
   if (languages !== undefined) configUpdates.languages = languages;
+  if (dashboardCards !== undefined) configUpdates.dashboardCards = dashboardCards;
 
   const docRef = adminDb.collection("businessConfig").doc("main");
   const doc = await docRef.get();

@@ -398,13 +398,15 @@ export default function AdminCalendarPage() {
         </div>
 
         {/* Navigation */}
-        <Button variant="outline" size="icon" className="shrink-0" onClick={() => navigate(-1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm font-medium flex-1 text-center min-w-[160px]">{rangeLabel()}</span>
-        <Button variant="outline" size="icon" className="shrink-0" onClick={() => navigate(1)}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1 flex-1 justify-center">
+          <Button variant="outline" size="icon" className="shrink-0" onClick={() => navigate(-1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium min-w-[160px] text-center">{rangeLabel()}</span>
+          <Button variant="outline" size="icon" className="shrink-0" onClick={() => navigate(1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
 
         {/* Show cancelled */}
         <Button variant="outline" size="sm" onClick={() => setShowCancelled((v) => !v)} className="gap-1.5 shrink-0">

@@ -15,9 +15,22 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Pencil, Trash2, Save, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Pencil, Trash2, Save, X, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
 import { formatInTimeZone } from "@/lib/date-utils";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  eachDayOfInterval,
+  addMonths,
+  isSameDay,
+  isSameMonth,
+  getDay,
+  addDays,
+} from "date-fns";
 
 interface ClientDetail {
   id: string;
@@ -74,6 +87,14 @@ export default function ClientDetailPage() {
   const [purgeAptId, setPurgeAptId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Admin booking state
+  const [showBooking, setShowBooking] = useState(false);
+  const [bookingMonth, setBookingMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedSlots, setSelectedSlots] = useState<{ date: string; time: string }[]>([]);
+  const [requireConfirmation, setRequireConfirmation] = useState(false);
+  const [bookingSaving, setBookingSaving] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     let c: ClientDetail | null = null;
     try {
@@ -100,7 +121,7 @@ export default function ClientDetailPage() {
     if (!c) return;
 
     try {
-      const aptsRes = await adminFetch(`/api/appointments?clientId=${clientId}`);
+      const aptsRes = await adminFetch(`/api/appointments?clientId=${clientId}&limit=200`);
       const aptsData = await aptsRes.json();
       setAppointments(aptsData.appointments || []);
       if (aptsData.timezone) setTimezone(aptsData.timezone);
@@ -148,8 +169,57 @@ export default function ClientDetailPage() {
     await fetchData();
   }
 
+  function toggleDateSlot(dateStr: string) {
+    setSelectedSlots((prev) => {
+      const exists = prev.find((s) => s.date === dateStr);
+      if (exists) return prev.filter((s) => s.date !== dateStr);
+      return [...prev, { date: dateStr, time: "10:00" }];
+    });
+  }
+
+  function updateSlotTime(dateStr: string, time: string) {
+    setSelectedSlots((prev) =>
+      prev.map((s) => (s.date === dateStr ? { ...s, time } : s))
+    );
+  }
+
+  async function handleBookingSubmit() {
+    if (selectedSlots.length === 0) return;
+    setBookingSaving(true);
+    setBookingError(null);
+    try {
+      const dateTimes = selectedSlots
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((s) => `${s.date} ${s.time}`);
+      const res = await adminFetch("/api/admin/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, dateTimes, requireConfirmation }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setBookingError(data.error || "Failed to book");
+        return;
+      }
+      setShowBooking(false);
+      setSelectedSlots([]);
+      setRequireConfirmation(false);
+      await fetchData();
+    } catch {
+      setBookingError("Failed to book appointments");
+    } finally {
+      setBookingSaving(false);
+    }
+  }
+
   if (loading) return <div className="text-muted-foreground">Loading...</div>;
   if (!client) return <div className="text-muted-foreground">Client not found</div>;
+
+  // Compute stats from live appointments — stored counters can be stale
+  const statsTotal = appointments.length;
+  const statsConfirmed = appointments.filter((a) => a.status === "confirmed" || a.status === "completed").length;
+  const statsCancelled = appointments.filter((a) => a.status === "cancelled").length;
+  const statsNoShow = appointments.filter((a) => a.status === "no_show").length;
 
   const purgeTarget = purgeAptId ? appointments.find((a) => a.id === purgeAptId) : null;
 
@@ -165,6 +235,13 @@ export default function ClientDetailPage() {
               <Pencil className="h-4 w-4 mr-1" /> Edit
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setShowBooking(true); setBookingError(null); setSelectedSlots([]); setBookingMonth(startOfMonth(new Date())); }}
+          >
+            <CalendarPlus className="h-4 w-4 mr-1" /> Book Appointment
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -279,24 +356,24 @@ export default function ClientDetailPage() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold">{client.totalAppointments || 0}</p>
+                <p className="text-2xl font-bold">{statsTotal}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Confirmed</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {client.confirmedAppointments || 0}
+                  {statsConfirmed}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">Cancelled</p>
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {client.cancelledAppointments || 0}
+                  {statsCancelled}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">No-show</p>
                 <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                  {client.noShowAppointments || 0}
+                  {statsNoShow}
                 </p>
               </div>
             </div>
@@ -389,6 +466,125 @@ export default function ClientDetailPage() {
             </Button>
             <Button variant="destructive" onClick={handleDeleteClient}>
               Delete Client
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Book appointment dialog */}
+      <Dialog open={showBooking} onOpenChange={(v) => { if (!v) { setShowBooking(false); setSelectedSlots([]); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Book Appointment for {client.firstName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Month navigation */}
+            <div className="flex items-center justify-center gap-2">
+              <Button variant="outline" size="icon" onClick={() => setBookingMonth((m) => startOfMonth(addMonths(m, -1)))}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium min-w-[120px] text-center">{format(bookingMonth, "MMMM yyyy")}</span>
+              <Button variant="outline" size="icon" onClick={() => setBookingMonth((m) => startOfMonth(addMonths(m, 1)))}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Calendar grid */}
+            {(() => {
+              const monthStart = startOfMonth(bookingMonth);
+              const monthEnd = endOfMonth(bookingMonth);
+              const allDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+              const leading = (getDay(monthStart) + 6) % 7;
+              const cells: (Date | null)[] = [...Array(leading).fill(null), ...allDays];
+              const rem = cells.length % 7;
+              if (rem > 0) cells.push(...Array(7 - rem).fill(null));
+
+              return (
+                <div>
+                  <div className="grid grid-cols-7 text-center text-xs text-muted-foreground mb-1">
+                    {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                      <div key={i} className="py-1">{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {cells.map((day, i) => {
+                      if (!day) return <div key={i} />;
+                      const dateStr = format(day, "yyyy-MM-dd");
+                      const isSelected = selectedSlots.some((s) => s.date === dateStr);
+                      const isToday = isSameDay(day, new Date());
+                      const isPast = day < startOfMonth(new Date()) || (isSameMonth(day, new Date()) && day < new Date() && !isToday);
+                      return (
+                        <button
+                          key={i}
+                          disabled={isPast}
+                          onClick={() => toggleDateSlot(dateStr)}
+                          className={`aspect-square flex items-center justify-center rounded text-sm font-medium transition-colors
+                            ${isPast ? "text-muted-foreground/40 cursor-not-allowed" : "hover:bg-accent cursor-pointer"}
+                            ${isSelected ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}
+                            ${isToday && !isSelected ? "border border-primary text-primary" : ""}
+                          `}
+                        >
+                          {format(day, "d")}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Selected slots with time inputs */}
+            {selectedSlots.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Selected dates</p>
+                {selectedSlots
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((slot) => (
+                    <div key={slot.date} className="flex items-center gap-3">
+                      <span className="text-sm min-w-[90px]">
+                        {format(new Date(slot.date + "T12:00:00"), "EEE, d MMM")}
+                      </span>
+                      <Input
+                        type="time"
+                        value={slot.time}
+                        onChange={(e) => updateSlotTime(slot.date, e.target.value)}
+                        className="w-28"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground"
+                        onClick={() => toggleDateSlot(slot.date)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {/* Require confirmation checkbox */}
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="req-confirm"
+                checked={requireConfirmation}
+                onCheckedChange={(v) => setRequireConfirmation(!!v)}
+              />
+              <Label htmlFor="req-confirm" className="font-normal text-sm cursor-pointer">
+                Require confirmation from client (sends Telegram request)
+              </Label>
+            </div>
+
+            {bookingError && <p className="text-sm text-destructive">{bookingError}</p>}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBooking(false)}>Cancel</Button>
+            <Button
+              onClick={handleBookingSubmit}
+              disabled={bookingSaving || selectedSlots.length === 0}
+            >
+              {bookingSaving ? "Saving..." : `Book ${selectedSlots.length > 0 ? `(${selectedSlots.length})` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>

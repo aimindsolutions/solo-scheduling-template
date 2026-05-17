@@ -5,10 +5,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { adminFetch } from "@/lib/api-client";
 import { TIMEZONES } from "@/lib/date-utils";
 import { Trash2, Plus } from "lucide-react";
+
+const DASHBOARD_CARD_OPTIONS = [
+  { key: "today_all",       label: "Today — all" },
+  { key: "today_confirmed", label: "Today — confirmed" },
+  { key: "today_booked",    label: "Today — pending (not confirmed)" },
+  { key: "today_cancelled", label: "Today — cancelled" },
+  { key: "week_all",        label: "This week — all" },
+  { key: "week_confirmed",  label: "This week — confirmed" },
+  { key: "week_booked",     label: "This week — pending" },
+  { key: "month_all",       label: "This month — all" },
+  { key: "month_confirmed", label: "This month — confirmed" },
+  { key: "month_booked",    label: "This month — pending" },
+  { key: "upcoming_all",    label: "All upcoming" },
+  { key: "upcoming_confirmed", label: "All upcoming — confirmed" },
+  { key: "upcoming_booked",    label: "All upcoming — pending" },
+];
+
+const DEFAULT_DASHBOARD_CARDS = ["today_all", "today_confirmed", "today_booked", "upcoming_all"];
 
 const DAYS = [
   "monday",
@@ -44,6 +63,7 @@ export default function AdminSettingsPage() {
   const [workingHours, setWorkingHours] = useState<WorkingHours>({});
   const [breakSlots, setBreakSlots] = useState<BreakSlot[]>([]);
   const [vacationDays, setVacationDays] = useState<VacationDay[]>([]);
+  const [dashboardCards, setDashboardCards] = useState<string[]>(DEFAULT_DASHBOARD_CARDS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -61,6 +81,7 @@ export default function AdminSettingsPage() {
           setWorkingHours(data.config.workingHours || {});
           setBreakSlots(data.config.breakSlots || []);
           setVacationDays(data.config.vacationDays || []);
+          setDashboardCards(data.config.dashboardCards || DEFAULT_DASHBOARD_CARDS);
         }
       } catch {
         // default values
@@ -132,6 +153,7 @@ export default function AdminSettingsPage() {
           workingHours,
           breakSlots,
           vacationDays,
+          dashboardCards,
         }),
       });
       if (res.ok) {
@@ -338,6 +360,41 @@ export default function AdminSettingsPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Dashboard Cards</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Choose which stat cards to show on the dashboard. Min 2.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {DASHBOARD_CARD_OPTIONS.map((opt) => {
+              const checked = dashboardCards.includes(opt.key);
+              return (
+                <div key={opt.key} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`dc-${opt.key}`}
+                    checked={checked}
+                    onCheckedChange={(v) => {
+                      if (v) {
+                        setDashboardCards((prev) => [...prev, opt.key]);
+                      } else {
+                        setDashboardCards((prev) => {
+                          const next = prev.filter((k) => k !== opt.key);
+                          return next.length < 2 ? prev : next;
+                        });
+                      }
+                    }}
+                  />
+                  <Label htmlFor={`dc-${opt.key}`} className="font-normal cursor-pointer text-sm">
+                    {opt.label}
+                  </Label>
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 

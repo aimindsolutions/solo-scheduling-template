@@ -14,6 +14,7 @@ import {
 import { CheckCircle, EyeOff, Eye } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
 import { formatInTimeZone } from "@/lib/date-utils";
+import { startOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 
 interface AppointmentData {
   id: string;
@@ -34,9 +35,38 @@ const statusColor: Record<string, string> = {
   no_show: "bg-gray-100 text-gray-800 dark:bg-gray-800/30 dark:text-gray-300",
 };
 
+const DEFAULT_CARDS = ["today_all", "today_confirmed", "today_booked", "upcoming_all"];
+
+function cardLabel(key: string): string {
+  const labels: Record<string, string> = {
+    today_all:        "Today",
+    today_confirmed:  "Today confirmed",
+    today_booked:     "Today pending",
+    today_cancelled:  "Today cancelled",
+    week_all:         "This week",
+    week_confirmed:   "Week confirmed",
+    week_booked:      "Week pending",
+    month_all:        "This month",
+    month_confirmed:  "Month confirmed",
+    month_booked:     "Month pending",
+    upcoming_all:     "Upcoming",
+    upcoming_confirmed: "Upcoming confirmed",
+    upcoming_booked:  "Upcoming pending",
+  };
+  return labels[key] ?? key;
+}
+
+function cardColor(key: string): string {
+  if (key.includes("confirmed")) return "text-green-600 dark:text-green-400";
+  if (key.includes("booked"))    return "text-orange-600 dark:text-orange-400";
+  if (key.includes("cancelled")) return "text-red-600 dark:text-red-400";
+  return "";
+}
+
 export default function AdminDashboardPage() {
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [timezone, setTimezone] = useState("Europe/Kyiv");
+  const [dashboardCards, setDashboardCards] = useState<string[]>(DEFAULT_CARDS);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -47,13 +77,18 @@ export default function AdminDashboardPage() {
     apt: AppointmentData;
   } | null>(null);
 
-  const fetchAppointments = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await adminFetch("/api/appointments");
-      const data = await res.json();
-      setAppointments(data.appointments || []);
-      setNextCursor(data.nextCursor ?? null);
-      if (data.timezone) setTimezone(data.timezone);
+      const [configRes, aptsRes] = await Promise.all([
+        adminFetch("/api/config"),
+        adminFetch(`/api/appointments?from=${startOfMonth(new Date()).toISOString()}&limit=500`),
+      ]);
+      const configData = await configRes.json();
+      if (configData.config?.dashboardCards) setDashboardCards(configData.config.dashboardCards);
+      const aptsData = await aptsRes.json();
+      setAppointments(aptsData.appointments || []);
+      setNextCursor(aptsData.nextCursor ?? null);
+      if (aptsData.timezone) setTimezone(aptsData.timezone);
     } catch {
       setAppointments([]);
     } finally {
@@ -77,8 +112,8 @@ export default function AdminDashboardPage() {
   }, [nextCursor]);
 
   useEffect(() => {
-    fetchAppointments();
-  }, [fetchAppointments]);
+    fetchData();
+  }, [fetchData]);
 
   function fmtTime(iso: string) {
     return formatInTimeZone(iso, timezone, "HH:mm");
@@ -90,23 +125,43 @@ export default function AdminDashboardPage() {
     return formatInTimeZone(iso, timezone, "dd.MM HH:mm");
   }
 
-  const todayStr = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const todayStart = startOfDay(now).toISOString();
+  const todayEnd = endOfDay(now).toISOString();
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString();
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
+  const monthStartIso = startOfMonth(now).toISOString();
+  const monthEndIso = endOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0)).toISOString();
+
+  const inRange = (iso: string, from: string, to: string) => iso >= from && iso <= to;
+
+  const statValues: Record<string, number> = {
+    today_all:        appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd)).length,
+    today_confirmed:  appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd) && a.status === "confirmed").length,
+    today_booked:     appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd) && a.status === "booked").length,
+    today_cancelled:  appointments.filter((a) => inRange(a.dateTime, todayStart, todayEnd) && a.status === "cancelled").length,
+    week_all:         appointments.filter((a) => inRange(a.dateTime, weekStart, weekEnd)).length,
+    week_confirmed:   appointments.filter((a) => inRange(a.dateTime, weekStart, weekEnd) && a.status === "confirmed").length,
+    week_booked:      appointments.filter((a) => inRange(a.dateTime, weekStart, weekEnd) && a.status === "booked").length,
+    month_all:        appointments.filter((a) => inRange(a.dateTime, monthStartIso, monthEndIso)).length,
+    month_confirmed:  appointments.filter((a) => inRange(a.dateTime, monthStartIso, monthEndIso) && a.status === "confirmed").length,
+    month_booked:     appointments.filter((a) => inRange(a.dateTime, monthStartIso, monthEndIso) && a.status === "booked").length,
+    upcoming_all:     appointments.filter((a) => a.dateTime > nowIso && a.status !== "cancelled").length,
+    upcoming_confirmed: appointments.filter((a) => a.dateTime > nowIso && a.status === "confirmed").length,
+    upcoming_booked:  appointments.filter((a) => a.dateTime > nowIso && a.status === "booked").length,
+  };
+
+  const todayStr = formatInTimeZone(now, timezone, "yyyy-MM-dd");
   const todayAppointments = appointments.filter(
     (a) => formatInTimeZone(a.dateTime, timezone, "yyyy-MM-dd") === todayStr && a.status !== "cancelled"
   );
   const todayCancelled = appointments.filter(
     (a) => formatInTimeZone(a.dateTime, timezone, "yyyy-MM-dd") === todayStr && a.status === "cancelled"
   );
-  const nowIso = new Date().toISOString();
   const upcomingAppointments = appointments.filter(
     (a) => a.dateTime > nowIso && a.status !== "cancelled"
   );
-  const confirmedToday = todayAppointments.filter(
-    (a) => a.status === "confirmed"
-  ).length;
-  const pendingToday = todayAppointments.filter(
-    (a) => a.status === "booked"
-  ).length;
 
   async function handleAction() {
     if (!confirmAction) return;
@@ -118,12 +173,17 @@ export default function AdminDashboardPage() {
     });
     setConfirmAction(null);
     setSelectedApt(null);
-    await fetchAppointments();
+    await fetchData();
   }
 
   if (loading) {
     return <div className="text-muted-foreground">Loading...</div>;
   }
+
+  const gridCols =
+    dashboardCards.length <= 2 ? "grid-cols-2" :
+    dashboardCards.length === 3 ? "grid-cols-2 md:grid-cols-3" :
+    "grid-cols-2 md:grid-cols-4";
 
   return (
     <div className="space-y-6">
@@ -140,31 +200,17 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Today</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{todayAppointments.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Confirmed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600 dark:text-green-400">{confirmedToday}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">{pendingToday}</div>
-          </CardContent>
-        </Card>
+      <div className={`grid ${gridCols} gap-4`}>
+        {dashboardCards.map((key) => (
+          <Card key={key}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">{cardLabel(key)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-3xl font-bold ${cardColor(key)}`}>{statValues[key] ?? 0}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <Card>
