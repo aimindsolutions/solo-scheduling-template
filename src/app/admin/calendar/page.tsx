@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Eye, Trash2, CheckCircle, EyeOff } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
+import { useAdminLang } from "@/lib/admin-i18n";
 import {
   format,
   startOfWeek,
@@ -60,6 +61,7 @@ const statusDot: Record<string, string> = {
 };
 
 export default function AdminCalendarPage() {
+  const { t } = useAdminLang();
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [timezone, setTimezone] = useState("Europe/Kyiv");
   const [view, setView] = useState<CalendarView>("1m");
@@ -211,7 +213,7 @@ export default function AdminCalendarPage() {
               )}
             </button>
           ))}
-          {dayAppointments.length === 0 && <p className="text-xs text-muted-foreground">—</p>}
+          {dayAppointments.length === 0 && <p className="text-xs text-muted-foreground" aria-hidden>—</p>}
         </CardContent>
       </Card>
     );
@@ -226,34 +228,34 @@ export default function AdminCalendarPage() {
           <DialogHeader><DialogTitle>{apt.clientName}</DialogTitle></DialogHeader>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Status</span>
-              <Badge className={statusColor[apt.status]}>{apt.status}</Badge>
+              <span className="text-muted-foreground">{t.field_status}</span>
+              <Badge className={statusColor[apt.status]}>{t.statusLabels[apt.status] ?? apt.status}</Badge>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Date & Time</span>
+              <span className="text-muted-foreground">{t.field_dateTime}</span>
               <span>{fmtDateTime(apt.dateTime)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Duration</span>
-              <span>{apt.durationMinutes} min</span>
+              <span className="text-muted-foreground">{t.field_duration}</span>
+              <span>{apt.durationMinutes} {t.min}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Phone</span>
+              <span className="text-muted-foreground">{t.field_phone}</span>
               <span>{apt.clientPhone || "—"}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Source</span>
+              <span className="text-muted-foreground">{t.field_source}</span>
               <span>{apt.source}</span>
             </div>
             {apt.notes && (
               <div>
-                <span className="text-muted-foreground">Notes:</span>
+                <span className="text-muted-foreground">{t.field_notes}:</span>
                 <p className="mt-1 p-2 bg-muted rounded text-sm">{apt.notes}</p>
               </div>
             )}
             {apt.createdAt && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Created</span>
+                <span className="text-muted-foreground">{t.field_created}</span>
                 <span>{fmtDateTime(apt.createdAt)}</span>
               </div>
             )}
@@ -262,15 +264,15 @@ export default function AdminCalendarPage() {
             <DialogFooter className="flex-col gap-2 sm:flex-row">
               {apt.status === "booked" && (
                 <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setConfirmAction({ type: "confirm", apt })}>
-                  <CheckCircle className="h-4 w-4 mr-1" /> Confirm
+                  <CheckCircle className="h-4 w-4 mr-1" /> {t.confirm}
                 </Button>
               )}
               {(apt.status === "booked" || apt.status === "confirmed") && (
                 <>
-                  <Button size="sm" variant="outline" onClick={() => setConfirmAction({ type: "complete", apt })}>Complete</Button>
-                  <Button size="sm" variant="outline" onClick={() => setConfirmAction({ type: "no_show", apt })}>No Show</Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmAction({ type: "complete", apt })}>{t.complete}</Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmAction({ type: "no_show", apt })}>{t.noShow}</Button>
                   <Button size="sm" variant="destructive" onClick={() => setConfirmAction({ type: "cancel", apt })}>
-                    <Trash2 className="h-4 w-4 mr-1" /> Cancel
+                    <Trash2 className="h-4 w-4 mr-1" /> {t.cancel}
                   </Button>
                 </>
               )}
@@ -284,31 +286,31 @@ export default function AdminCalendarPage() {
   function ConfirmActionDialog() {
     if (!confirmAction) return null;
     const labels: Record<string, string> = {
-      cancel: "Cancel this appointment? The client will be notified.",
-      confirm: "Confirm this appointment?",
-      no_show: "Mark as no-show?",
-      complete: "Mark as completed?",
+      cancel: t.cancelConfirmText,
+      confirm: t.confirmAppointment,
+      no_show: t.markNoShow,
+      complete: t.markCompleted,
     };
     return (
       <Dialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Confirm Action</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t.confirmAction}</DialogTitle></DialogHeader>
           <p className="text-sm">{labels[confirmAction.type]}</p>
           <p className="text-sm text-muted-foreground">
             {confirmAction.apt.clientName} — {fmtShort(confirmAction.apt.dateTime)}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmAction(null)}>Back</Button>
+            <Button variant="outline" onClick={() => setConfirmAction(null)}>{t.back}</Button>
             {confirmAction.type === "cancel" ? (
               <Button variant="destructive" onClick={() => handleDelete(confirmAction.apt.id)}>
-                Cancel Appointment
+                {t.cancelAppointment}
               </Button>
             ) : (
               <Button onClick={() => handleStatusChange(confirmAction.apt.id,
                 confirmAction.type === "confirm" ? "confirmed"
                   : confirmAction.type === "complete" ? "completed" : "no_show"
               )}>
-                Confirm
+                {t.confirm}
               </Button>
             )}
           </DialogFooter>
@@ -329,7 +331,7 @@ export default function AdminCalendarPage() {
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{format(dayView, "EEEE, d MMMM yyyy")}</DialogTitle></DialogHeader>
           {dayApts.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No appointments</p>
+            <p className="text-muted-foreground text-sm">{t.noAppointments}</p>
           ) : (
             <div className="space-y-3">
               {dayApts.map((apt) => (
@@ -344,9 +346,9 @@ export default function AdminCalendarPage() {
                     <Badge className={statusColor[apt.status]}>{apt.status}</Badge>
                   </div>
                   <div className="text-sm text-muted-foreground grid grid-cols-2 gap-1">
-                    <span>Phone: {apt.clientPhone || "—"}</span>
-                    <span>Duration: {apt.durationMinutes} min</span>
-                    <span>Source: {apt.source}</span>
+                    <span>{t.field_phone}: {apt.clientPhone || "—"}</span>
+                    <span>{t.field_duration}: {apt.durationMinutes} {t.min}</span>
+                    <span>{t.field_source}: {apt.source}</span>
                   </div>
                   {apt.notes && <p className="text-sm p-2 bg-muted rounded">{apt.notes}</p>}
                   {apt.status !== "cancelled" && (
@@ -354,12 +356,12 @@ export default function AdminCalendarPage() {
                       {apt.status === "booked" && (
                         <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
                           onClick={() => setConfirmAction({ type: "confirm", apt })}>
-                          Confirm
+                          {t.confirm}
                         </Button>
                       )}
                       <Button size="sm" variant="destructive" className="h-7 text-xs"
                         onClick={() => { setDayView(null); setConfirmAction({ type: "cancel", apt }); }}>
-                        Cancel
+                        {t.cancel}
                       </Button>
                     </div>
                   )}
@@ -378,7 +380,7 @@ export default function AdminCalendarPage() {
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-bold mr-2">Calendar</h1>
+        <h1 className="text-2xl font-bold mr-2">{t.calendar}</h1>
 
         {/* View toggle */}
         <div className="flex rounded-md border overflow-hidden">
@@ -411,12 +413,12 @@ export default function AdminCalendarPage() {
         {/* Show cancelled */}
         <Button variant="outline" size="sm" onClick={() => setShowCancelled((v) => !v)} className="gap-1.5 shrink-0">
           {showCancelled ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          <span className="hidden sm:inline">{showCancelled ? "Hide cancelled" : "Show cancelled"}</span>
+          <span className="hidden sm:inline">{showCancelled ? t.hideCancelled : t.showCancelled}</span>
         </Button>
       </div>
 
       {loading ? (
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground">{t.loading}</div>
       ) : (
         <>
           {/* 1W and 2W: simple linear grid */}
@@ -430,7 +432,7 @@ export default function AdminCalendarPage() {
           {view === "1m" && (
             <div className="space-y-1">
               <div className="grid grid-cols-7 gap-1">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                {t.weekdays.map((d) => (
                   <div key={d} className="text-xs text-center font-medium text-muted-foreground py-1">{d}</div>
                 ))}
               </div>

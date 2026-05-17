@@ -10,23 +10,25 @@ import { Calendar, Users, LayoutDashboard, Settings, LogOut, Menu, X } from "luc
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import type { User } from "firebase/auth";
-
-const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/calendar", label: "Calendar", icon: Calendar },
-  { href: "/admin/clients", label: "Clients", icon: Users },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
-];
+import { useAdminLang } from "@/lib/admin-i18n";
 
 export function AdminSidebar({ user }: { user: User | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { t, locale, setLocale } = useAdminLang();
+
+  const navItems = [
+    { href: "/admin", label: t.dashboard, icon: LayoutDashboard },
+    { href: "/admin/calendar", label: t.calendar, icon: Calendar },
+    { href: "/admin/clients", label: t.clients, icon: Users },
+    { href: "/admin/settings", label: t.settings, icon: Settings },
+  ];
 
   const nav = (
     <>
       <div className="p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Admin Panel</h2>
+          <h2 className="text-lg font-semibold">{t.adminPanel}</h2>
           <Button
             variant="ghost"
             size="icon"
@@ -68,7 +70,25 @@ export function AdminSidebar({ user }: { user: User | null }) {
       <div className="p-2 space-y-1">
         <div className="flex items-center gap-2 px-3 py-1">
           <ThemeToggle />
-          <span className="text-sm text-muted-foreground">Theme</span>
+          <span className="text-sm text-muted-foreground">{t.theme}</span>
+        </div>
+        <div className="flex items-center gap-1 px-3 py-1">
+          <Button
+            variant={locale === "uk" ? "default" : "ghost"}
+            size="sm"
+            className="text-xs px-2 py-1 h-7"
+            onClick={() => setLocale("uk")}
+          >
+            UA
+          </Button>
+          <Button
+            variant={locale === "en" ? "default" : "ghost"}
+            size="sm"
+            className="text-xs px-2 py-1 h-7"
+            onClick={() => setLocale("en")}
+          >
+            EN
+          </Button>
         </div>
         <Button
           variant="ghost"
@@ -76,7 +96,7 @@ export function AdminSidebar({ user }: { user: User | null }) {
           onClick={() => signOut()}
         >
           <LogOut className="h-4 w-4" />
-          Sign Out
+          {t.signOut}
         </Button>
       </div>
     </>
@@ -86,7 +106,7 @@ export function AdminSidebar({ user }: { user: User | null }) {
     <>
       {/* Mobile header bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 border-b bg-card">
-        <h2 className="text-lg font-semibold">Admin</h2>
+        <h2 className="text-lg font-semibold">{t.admin}</h2>
         <Button variant="ghost" size="icon" onClick={() => setOpen(true)}>
           <Menu className="h-5 w-5" />
         </Button>

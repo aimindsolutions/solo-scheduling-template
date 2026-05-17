@@ -10,21 +10,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { adminFetch } from "@/lib/api-client";
 import { TIMEZONES } from "@/lib/date-utils";
 import { Trash2, Plus } from "lucide-react";
+import { useAdminLang } from "@/lib/admin-i18n";
 
-const DASHBOARD_CARD_OPTIONS = [
-  { key: "today_all",       label: "Today — all" },
-  { key: "today_confirmed", label: "Today — confirmed" },
-  { key: "today_booked",    label: "Today — pending (not confirmed)" },
-  { key: "today_cancelled", label: "Today — cancelled" },
-  { key: "week_all",        label: "This week — all" },
-  { key: "week_confirmed",  label: "This week — confirmed" },
-  { key: "week_booked",     label: "This week — pending" },
-  { key: "month_all",       label: "This month — all" },
-  { key: "month_confirmed", label: "This month — confirmed" },
-  { key: "month_booked",    label: "This month — pending" },
-  { key: "upcoming_all",    label: "All upcoming" },
-  { key: "upcoming_confirmed", label: "All upcoming — confirmed" },
-  { key: "upcoming_booked",    label: "All upcoming — pending" },
+const DASHBOARD_CARD_KEYS = [
+  "today_all",
+  "today_confirmed",
+  "today_booked",
+  "today_cancelled",
+  "week_all",
+  "week_confirmed",
+  "week_booked",
+  "month_all",
+  "month_confirmed",
+  "month_booked",
+  "upcoming_all",
+  "upcoming_confirmed",
+  "upcoming_booked",
 ];
 
 const DEFAULT_DASHBOARD_CARDS = ["today_all", "today_confirmed", "today_booked", "upcoming_all"];
@@ -56,6 +57,7 @@ interface VacationDay {
 }
 
 export default function AdminSettingsPage() {
+  const { t } = useAdminLang();
   const [businessName, setBusinessName] = useState("");
   const [serviceName, setServiceName] = useState("");
   const [duration, setDuration] = useState("30");
@@ -157,31 +159,31 @@ export default function AdminSettingsPage() {
         }),
       });
       if (res.ok) {
-        setMessage("Settings saved!");
+        setMessage(t.settingsSaved);
       } else {
         const body = await res.json().catch(() => ({}));
-        setMessage(body.error || "Failed to save settings");
+        setMessage(body.error || t.settingsFailed);
       }
     } catch {
-      setMessage("Failed to save settings");
+      setMessage(t.settingsFailed);
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) return <div className="text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="text-muted-foreground">{t.loading}</div>;
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="text-2xl font-bold">{t.settings}</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Business Info</CardTitle>
+          <CardTitle className="text-base">{t.businessInfo}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Business Name</Label>
+            <Label>{t.businessName}</Label>
             <Input
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
@@ -189,7 +191,7 @@ export default function AdminSettingsPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label>Service Name</Label>
+            <Label>{t.serviceName}</Label>
             <Input
               value={serviceName}
               onChange={(e) => setServiceName(e.target.value)}
@@ -197,7 +199,7 @@ export default function AdminSettingsPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label>Default Duration (minutes)</Label>
+            <Label>{t.defaultDuration}</Label>
             <Select value={duration} onValueChange={(v) => v && setDuration(v)}>
               <SelectTrigger>
                 <SelectValue />
@@ -213,7 +215,7 @@ export default function AdminSettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Timezone</Label>
+            <Label>{t.timezone}</Label>
             <Select value={timezone} onValueChange={(v) => v && setTimezone(v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select timezone" />
@@ -232,10 +234,10 @@ export default function AdminSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Working Hours</CardTitle>
+          <CardTitle className="text-base">{t.workingHours}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {DAYS.map((day) => {
+          {DAYS.map((day, i) => {
             const hours = workingHours[day];
             const isActive = !!hours;
             return (
@@ -243,10 +245,10 @@ export default function AdminSettingsPage() {
                 <Button
                   variant={isActive ? "default" : "outline"}
                   size="sm"
-                  className="w-24 text-xs capitalize"
+                  className="w-24 text-xs"
                   onClick={() => toggleDay(day)}
                 >
-                  {day.slice(0, 3)}
+                  {t.weekdays[i]}
                 </Button>
                 {isActive && hours ? (
                   <>
@@ -265,7 +267,7 @@ export default function AdminSettingsPage() {
                     />
                   </>
                 ) : (
-                  <span className="text-sm text-muted-foreground">Day off</span>
+                  <span className="text-sm text-muted-foreground">{t.dayOff}</span>
                 )}
               </div>
             );
@@ -275,14 +277,14 @@ export default function AdminSettingsPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Break Times</CardTitle>
+          <CardTitle className="text-base">{t.breakTimes}</CardTitle>
           <Button variant="outline" size="sm" onClick={addBreakSlot}>
-            <Plus className="h-3.5 w-3.5 mr-1" /> Add Break
+            <Plus className="h-3.5 w-3.5 mr-1" /> {t.addBreak}
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
           {breakSlots.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No breaks configured</p>
+            <p className="text-sm text-muted-foreground">{t.noBreaks}</p>
           ) : (
             breakSlots.map((slot, index) => (
               <div key={index} className="flex items-center gap-3">
@@ -315,20 +317,20 @@ export default function AdminSettingsPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Vacation Days</CardTitle>
+          <CardTitle className="text-base">{t.vacationDays}</CardTitle>
           <Button variant="outline" size="sm" onClick={addVacation}>
-            <Plus className="h-3.5 w-3.5 mr-1" /> Add Vacation
+            <Plus className="h-3.5 w-3.5 mr-1" /> {t.addVacation}
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
           {vacationDays.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No vacation days configured</p>
+            <p className="text-sm text-muted-foreground">{t.noVacations}</p>
           ) : (
             <div className="space-y-3">
               <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_40px] gap-3 text-xs text-muted-foreground font-medium">
-                <span>Start Date</span>
-                <span>End Date</span>
-                <span>Reason</span>
+                <span>{t.startDate}</span>
+                <span>{t.endDate}</span>
+                <span>{t.reason}</span>
                 <span />
               </div>
               {vacationDays.map((vacation) => (
@@ -346,7 +348,7 @@ export default function AdminSettingsPage() {
                   <Input
                     value={vacation.reason || ""}
                     onChange={(e) => updateVacation(vacation.id, "reason", e.target.value)}
-                    placeholder="Reason (optional)"
+                    placeholder={t.reasonOptional}
                   />
                   <Button
                     variant="ghost"
@@ -365,31 +367,31 @@ export default function AdminSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Dashboard Cards</CardTitle>
+          <CardTitle className="text-base">{t.dashboardCardsTitle}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">Choose which stat cards to show on the dashboard. Min 2.</p>
+          <p className="text-sm text-muted-foreground">{t.dashboardCardsHint}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {DASHBOARD_CARD_OPTIONS.map((opt) => {
-              const checked = dashboardCards.includes(opt.key);
+            {DASHBOARD_CARD_KEYS.map((key) => {
+              const checked = dashboardCards.includes(key);
               return (
-                <div key={opt.key} className="flex items-center gap-2">
+                <div key={key} className="flex items-center gap-2">
                   <Checkbox
-                    id={`dc-${opt.key}`}
+                    id={`dc-${key}`}
                     checked={checked}
                     onCheckedChange={(v) => {
                       if (v) {
-                        setDashboardCards((prev) => [...prev, opt.key]);
+                        setDashboardCards((prev) => [...prev, key]);
                       } else {
                         setDashboardCards((prev) => {
-                          const next = prev.filter((k) => k !== opt.key);
+                          const next = prev.filter((k) => k !== key);
                           return next.length < 2 ? prev : next;
                         });
                       }
                     }}
                   />
-                  <Label htmlFor={`dc-${opt.key}`} className="font-normal cursor-pointer text-sm">
-                    {opt.label}
+                  <Label htmlFor={`dc-${key}`} className="font-normal cursor-pointer text-sm">
+                    {t.cardOptLabels[key] ?? key}
                   </Label>
                 </div>
               );
@@ -405,7 +407,7 @@ export default function AdminSettingsPage() {
       )}
 
       <Button onClick={handleSave} disabled={saving}>
-        {saving ? "Saving..." : "Save Settings"}
+        {saving ? t.saving : t.saveSettings}
       </Button>
     </div>
   );

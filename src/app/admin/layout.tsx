@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { onAuthChange } from "@/lib/firebase/auth";
 import type { User } from "firebase/auth";
 import { AdminSidebar } from "@/components/admin/sidebar";
+import { AdminLangProvider } from "@/lib/admin-i18n";
 
 // Prevent Next.js from pre-rendering admin pages at build time.
 // Firebase Auth client SDK requires NEXT_PUBLIC_FIREBASE_API_KEY at runtime.
@@ -33,9 +34,11 @@ export default function AdminLayout({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
+      <AdminLangProvider>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      </AdminLangProvider>
     );
   }
 
@@ -44,13 +47,15 @@ export default function AdminLayout({
   }
 
   if (pathname === "/admin/login") {
-    return <>{children}</>;
+    return <AdminLangProvider>{children}</AdminLangProvider>;
   }
 
   return (
-    <div className="flex min-h-screen">
-      <AdminSidebar user={user} />
-      <main className="flex-1 p-4 pt-16 md:p-6 md:pt-6 overflow-auto">{children}</main>
-    </div>
+    <AdminLangProvider>
+      <div className="flex min-h-screen">
+        <AdminSidebar user={user} />
+        <main className="flex-1 p-4 pt-16 md:p-6 md:pt-6 overflow-auto">{children}</main>
+      </div>
+    </AdminLangProvider>
   );
 }

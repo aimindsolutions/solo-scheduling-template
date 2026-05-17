@@ -21,6 +21,7 @@ import {
   Calendar, XCircle,
 } from "lucide-react";
 import { adminFetch } from "@/lib/api-client";
+import { useAdminLang } from "@/lib/admin-i18n";
 import { formatInTimeZone } from "@/lib/date-utils";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval,
@@ -137,6 +138,7 @@ function MiniCalendar({
 }
 
 export default function ClientDetailPage() {
+  const { t } = useAdminLang();
   const params = useParams();
   const router = useRouter();
   const clientId = params.id as string;
@@ -310,8 +312,8 @@ export default function ClientDetailPage() {
     }
   }
 
-  if (loading) return <div className="text-muted-foreground">Loading...</div>;
-  if (!client) return <div className="text-muted-foreground">Client not found</div>;
+  if (loading) return <div className="text-muted-foreground">{t.loading}</div>;
+  if (!client) return <div className="text-muted-foreground">{t.clientNotFound}</div>;
 
   const now = new Date();
   const statsTotal = appointments.length;
@@ -329,7 +331,7 @@ export default function ClientDetailPage() {
         <div className="flex flex-wrap gap-2">
           {!editing && (
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil className="h-4 w-4 mr-1" /> Edit
+              <Pencil className="h-4 w-4 mr-1" /> {t.edit}
             </Button>
           )}
           <Button
@@ -344,7 +346,7 @@ export default function ClientDetailPage() {
               setBookingMonth(startOfMonth(new Date()));
             }}
           >
-            <CalendarPlus className="h-4 w-4 mr-1" /> Book
+            <CalendarPlus className="h-4 w-4 mr-1" /> {t.book}
           </Button>
           <Button
             variant="outline"
@@ -352,7 +354,7 @@ export default function ClientDetailPage() {
             className="text-red-700 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/30"
             onClick={() => setShowDeleteClient(true)}
           >
-            <Trash2 className="h-4 w-4 mr-1" /> Delete
+            <Trash2 className="h-4 w-4 mr-1" /> {t.delete}
           </Button>
         </div>
       </div>
@@ -361,46 +363,46 @@ export default function ClientDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Contact Info</CardTitle>
+            <CardTitle className="text-base">{t.contactInfo}</CardTitle>
           </CardHeader>
           <CardContent>
             {editing ? (
               <div className="space-y-3">
                 <div>
-                  <Label>First Name</Label>
+                  <Label>{t.firstName}</Label>
                   <Input value={editForm.firstName} onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Last Name</Label>
+                  <Label>{t.lastName}</Label>
                   <Input value={editForm.lastName} onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Phone</Label>
+                  <Label>{t.field_phone}</Label>
                   <Input value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Email</Label>
+                  <Label>{t.email}</Label>
                   <Input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div className="flex gap-2 pt-2">
                   <Button size="sm" onClick={handleSave} disabled={saving}>
-                    <Save className="h-4 w-4 mr-1" />{saving ? "Saving..." : "Save"}
+                    <Save className="h-4 w-4 mr-1" />{saving ? t.saving : t.save}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setEditing(false);
                     setEditForm({ firstName: client.firstName, lastName: client.lastName || "", phone: client.phone, email: client.email || "" });
                   }}>
-                    <X className="h-4 w-4 mr-1" /> Cancel
+                    <X className="h-4 w-4 mr-1" /> {t.cancel}
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="space-y-2 text-sm">
-                <div><span className="text-muted-foreground">Phone: </span>{client.phone}</div>
-                {client.email && <div><span className="text-muted-foreground">Email: </span>{client.email}</div>}
-                {client.telegramChatId && <div><span className="text-muted-foreground">Telegram: </span>connected</div>}
+                <div><span className="text-muted-foreground">{t.phoneLabel}</span>{client.phone}</div>
+                {client.email && <div><span className="text-muted-foreground">{t.emailLabel}</span>{client.email}</div>}
+                {client.telegramChatId && <div><span className="text-muted-foreground">{t.telegramLabel}</span>{t.telegramConnected}</div>}
                 <div>
-                  <span className="text-muted-foreground">Client since: </span>
+                  <span className="text-muted-foreground">{t.clientSince}</span>
                   {client.createdAt ? formatInTimeZone(client.createdAt, timezone, "dd.MM.yyyy") : "—"}
                 </div>
               </div>
@@ -410,24 +412,24 @@ export default function ClientDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Statistics</CardTitle>
+            <CardTitle className="text-base">{t.statistics}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-muted-foreground">Total</p>
+                <p className="text-muted-foreground">{t.stat_total}</p>
                 <p className="text-2xl font-bold">{statsTotal}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Confirmed</p>
+                <p className="text-muted-foreground">{t.stat_confirmed}</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">{statsConfirmed}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Cancelled</p>
+                <p className="text-muted-foreground">{t.stat_cancelled}</p>
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{statsCancelled}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">No-show</p>
+                <p className="text-muted-foreground">{t.stat_noShow}</p>
                 <p className="text-2xl font-bold text-red-600 dark:text-red-400">{statsNoShow}</p>
               </div>
             </div>
@@ -438,11 +440,11 @@ export default function ClientDetailPage() {
       {/* Admin notes */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Additional Info</CardTitle>
+          <CardTitle className="text-base">{t.additionalInfo}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <Textarea
-            placeholder="Admin notes about this client..."
+            placeholder={t.adminNotesPlaceholder}
             value={notes}
             onChange={(e) => { setNotes(e.target.value); setNotesDirty(true); }}
             rows={3}
@@ -450,7 +452,7 @@ export default function ClientDetailPage() {
           />
           {notesDirty && (
             <Button size="sm" onClick={handleSaveNotes} disabled={notesSaving}>
-              <Save className="h-4 w-4 mr-1" />{notesSaving ? "Saving..." : "Save Notes"}
+              <Save className="h-4 w-4 mr-1" />{notesSaving ? t.saving : t.saveNotes}
             </Button>
           )}
         </CardContent>
@@ -459,11 +461,11 @@ export default function ClientDetailPage() {
       {/* Appointment history */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Appointment History</CardTitle>
+          <CardTitle className="text-base">{t.appointmentHistory}</CardTitle>
         </CardHeader>
         <CardContent>
           {appointments.length === 0 ? (
-            <p className="text-muted-foreground">No appointments</p>
+            <p className="text-muted-foreground">{t.noAppointments}</p>
           ) : (
             <div className="space-y-2">
               {appointments.map((apt) => {
@@ -477,17 +479,17 @@ export default function ClientDetailPage() {
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm font-medium ${isPast ? "text-muted-foreground" : ""}`}>
                         {formatInTimeZone(apt.dateTime, timezone, "dd.MM.yyyy HH:mm")}
-                        {isPast && <span className="ml-2 text-xs font-normal">(past)</span>}
+                        {isPast && <span className="ml-2 text-xs font-normal">{t.pastLabel}</span>}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {apt.durationMinutes} min — via {apt.source}
+                        {apt.durationMinutes} {t.min} — {t.via} {apt.source}
                       </p>
                       {apt.notes && (
                         <p className="text-xs text-muted-foreground mt-1 truncate">{apt.notes}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <Badge className={statusColor[apt.status] || ""}>{apt.status}</Badge>
+                      <Badge className={statusColor[apt.status] || ""}>{t.statusLabels[apt.status] ?? apt.status}</Badge>
                       {/* Reschedule — only for active appointments */}
                       {!isCancelled && apt.status !== "completed" && apt.status !== "no_show" && (
                         <Button
@@ -540,13 +542,13 @@ export default function ClientDetailPage() {
       {/* ── Delete client dialog ─────────────────────────────────── */}
       <Dialog open={showDeleteClient} onOpenChange={setShowDeleteClient}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Delete Client</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t.deleteClient}</DialogTitle></DialogHeader>
           <p className="text-sm">
-            Permanently delete {client.firstName} {client.lastName || ""}? This cannot be undone.
+            {t.deleteClientConfirm(`${client.firstName} ${client.lastName || ""}`)}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteClient(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteClient}>Delete Client</Button>
+            <Button variant="outline" onClick={() => setShowDeleteClient(false)}>{t.cancel}</Button>
+            <Button variant="destructive" onClick={handleDeleteClient}>{t.deleteClient}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -558,17 +560,17 @@ export default function ClientDetailPage() {
         onOpenChange={(v) => { if (!v) setAptAction(null); }}
       >
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Cancel Appointment</DialogTitle></DialogHeader>
-          <p className="text-sm">Cancel this appointment? The client will be notified via Telegram.</p>
+          <DialogHeader><DialogTitle>{t.cancelAptTitle}</DialogTitle></DialogHeader>
+          <p className="text-sm">{t.cancelAptText}</p>
           {aptAction && (
             <p className="text-sm text-muted-foreground">
               {formatInTimeZone(aptAction.apt.dateTime, timezone, "dd.MM.yyyy HH:mm")}
             </p>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAptAction(null)}>Back</Button>
+            <Button variant="outline" onClick={() => setAptAction(null)}>{t.back}</Button>
             <Button variant="destructive" onClick={handleAptActionConfirm} disabled={aptActionSaving}>
-              {aptActionSaving ? "Cancelling..." : "Cancel Appointment"}
+              {aptActionSaving ? t.cancelling : t.cancelAptTitle}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -580,17 +582,17 @@ export default function ClientDetailPage() {
         onOpenChange={(v) => { if (!v) setAptAction(null); }}
       >
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Delete Record</DialogTitle></DialogHeader>
-          <p className="text-sm">Permanently delete this appointment record from the database? This cannot be undone.</p>
+          <DialogHeader><DialogTitle>{t.deleteRecord}</DialogTitle></DialogHeader>
+          <p className="text-sm">{t.deleteRecordText}</p>
           {aptAction && (
             <p className="text-sm text-muted-foreground">
               {formatInTimeZone(aptAction.apt.dateTime, timezone, "dd.MM.yyyy HH:mm")} — {aptAction.apt.status}
             </p>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAptAction(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAptAction(null)}>{t.cancel}</Button>
             <Button variant="destructive" onClick={handleAptActionConfirm} disabled={aptActionSaving}>
-              {aptActionSaving ? "Deleting..." : "Delete Record"}
+              {aptActionSaving ? t.deleting : t.deleteRecord}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -602,10 +604,10 @@ export default function ClientDetailPage() {
         onOpenChange={(v) => { if (!v) { setAptAction(null); setRescheduleDate(null); setRescheduleTime(null); setRescheduleSlots([]); } }}
       >
         <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Reschedule Appointment</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t.rescheduleTitle}</DialogTitle></DialogHeader>
           {aptAction && (
             <p className="text-sm text-muted-foreground">
-              Current: {formatInTimeZone(aptAction.apt.dateTime, timezone, "dd.MM.yyyy HH:mm")}
+              {t.current}{formatInTimeZone(aptAction.apt.dateTime, timezone, "dd.MM.yyyy HH:mm")}
             </p>
           )}
           <MiniCalendar
@@ -622,12 +624,12 @@ export default function ClientDetailPage() {
           {rescheduleDate && (
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                {format(new Date(rescheduleDate + "T12:00:00"), "EEE, d MMMM")} — pick a time
+                {format(new Date(rescheduleDate + "T12:00:00"), "EEE, d MMMM")} — {t.pickTime}
               </p>
               {rescheduleLoadingSlots ? (
-                <p className="text-sm text-muted-foreground">Loading slots…</p>
+                <p className="text-sm text-muted-foreground">{t.loadingSlots}</p>
               ) : rescheduleSlots.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No available slots on this day.</p>
+                <p className="text-sm text-muted-foreground">{t.noSlots}</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {rescheduleSlots.map((slot) => (
@@ -648,12 +650,12 @@ export default function ClientDetailPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAptAction(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAptAction(null)}>{t.cancel}</Button>
             <Button
               onClick={handleAptActionConfirm}
               disabled={aptActionSaving || !rescheduleDate || !rescheduleTime}
             >
-              {aptActionSaving ? "Saving..." : "Reschedule"}
+              {aptActionSaving ? t.saving : t.reschedule}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -666,7 +668,7 @@ export default function ClientDetailPage() {
       >
         <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Book for {client.firstName}</DialogTitle>
+            <DialogTitle>{t.bookFor(client.firstName)}</DialogTitle>
           </DialogHeader>
           <MiniCalendar
             month={bookingMonth}
@@ -690,9 +692,9 @@ export default function ClientDetailPage() {
                 {format(new Date(bookingActiveDate + "T12:00:00"), "EEE, d MMMM")}
               </p>
               {bookingLoadingSlots ? (
-                <p className="text-sm text-muted-foreground">Loading slots…</p>
+                <p className="text-sm text-muted-foreground">{t.loadingSlots}</p>
               ) : bookingSlots.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No available slots on this day.</p>
+                <p className="text-sm text-muted-foreground">{t.noSlots}</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {bookingSlots.map((slot) => {
@@ -724,7 +726,7 @@ export default function ClientDetailPage() {
           {/* Selected summary */}
           {selectedSlots.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-sm font-medium">Selected ({selectedSlots.length})</p>
+              <p className="text-sm font-medium">{t.selectedCount(selectedSlots.length)}</p>
               {selectedSlots.sort((a, b) => a.date.localeCompare(b.date)).map((s) => (
                 <div key={s.date} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
@@ -750,19 +752,19 @@ export default function ClientDetailPage() {
               onCheckedChange={(v) => setRequireConfirmation(!!v)}
             />
             <Label htmlFor="req-confirm" className="font-normal text-sm cursor-pointer">
-              Require confirmation from client
+              {t.requireConfirmation}
             </Label>
           </div>
 
           {bookingError && <p className="text-sm text-destructive">{bookingError}</p>}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBooking(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowBooking(false)}>{t.cancel}</Button>
             <Button
               onClick={handleBookingSubmit}
               disabled={bookingSaving || selectedSlots.length === 0}
             >
-              {bookingSaving ? "Saving..." : `Book${selectedSlots.length > 0 ? ` (${selectedSlots.length})` : ""}`}
+              {bookingSaving ? t.saving : t.bookBtn(selectedSlots.length)}
             </Button>
           </DialogFooter>
         </DialogContent>
