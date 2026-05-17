@@ -45,7 +45,7 @@ export async function PATCH(
   }
 
   const updates: Record<string, unknown> = { updatedAt: Timestamp.now() };
-  const allowedFields = ["firstName", "lastName", "phone", "email", "language"];
+  const allowedFields = ["firstName", "lastName", "phone", "email", "language", "adminNotes"];
 
   for (const field of allowedFields) {
     if (body[field] !== undefined) {

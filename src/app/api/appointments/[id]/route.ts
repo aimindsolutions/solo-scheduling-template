@@ -132,13 +132,33 @@ export async function DELETE(
   if (authError) return authError;
 
   const { id } = await params;
-  const doc = await adminDb.collection("appointments").doc(id).get();
+  const { searchParams } = new URL(request.url);
+  const purge = searchParams.get("purge") === "true";
 
+  const doc = await adminDb.collection("appointments").doc(id).get();
   if (!doc.exists) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const appointment = doc.data()!;
+
+  // Purge: hard-delete an already-cancelled record (no calendar/notification side-effects)
+  if (purge) {
+    if (appointment.status !== "cancelled") {
+      return NextResponse.json({ error: "Only cancelled appointments can be purged" }, { status: 400 });
+    }
+    await adminDb.collection("appointments").doc(id).delete();
+    if (appointment.clientId) {
+      try {
+        await adminDb.collection("clients").doc(appointment.clientId).update({
+          totalAppointments: FieldValue.increment(-1),
+          cancelledAppointments: FieldValue.increment(-1),
+          updatedAt: Timestamp.now(),
+        });
+      } catch {}
+    }
+    return NextResponse.json({ success: true });
+  }
 
   if (appointment.googleCalendarEventId) {
     try {
