@@ -138,6 +138,13 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          <p className="text-center text-sm text-muted-foreground">
+            {t("noAccount")}{" "}
+            <Link href="/register" className="text-primary underline underline-offset-4">
+              {t("register")}
+            </Link>
+          </p>
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -156,13 +163,6 @@ export default function LoginPage() {
           >
             {t("continueWithGoogle")}
           </Button>
-
-          <p className="text-center text-sm text-muted-foreground">
-            {t("noAccount")}{" "}
-            <Link href="/register" className="text-primary underline underline-offset-4">
-              {t("register")}
-            </Link>
-          </p>
         </div>
       </main>
     </div>

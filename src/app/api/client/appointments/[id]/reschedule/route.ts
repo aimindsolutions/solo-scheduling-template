@@ -6,7 +6,7 @@ import { parseInTimeZone, startOfDayInTimeZone, endOfDayInTimeZone } from "@/lib
 import { getAvailableSlots, getNowLocalForSlots } from "@/lib/slots";
 import { parse } from "date-fns";
 import { deleteCalendarEvent, createCalendarEvent } from "@/lib/calendar/google";
-import { notifyOwnerOfNewBooking } from "@/lib/telegram/notifications";
+import { notifyOwnerOfReschedule } from "@/lib/telegram/notifications";
 import type { BusinessConfig, Appointment } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -135,9 +135,10 @@ export async function POST(
   }
 
   try {
-    await notifyOwnerOfNewBooking({
+    await notifyOwnerOfReschedule({
       clientName: apt.clientName,
-      dateTime: Timestamp.fromDate(newDateTime),
+      oldDateTime: apt.dateTime,
+      newDateTime: Timestamp.fromDate(newDateTime),
       phone: apt.clientPhone,
     });
   } catch {}

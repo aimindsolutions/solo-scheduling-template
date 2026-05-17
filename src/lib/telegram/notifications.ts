@@ -145,6 +145,34 @@ export async function sendAppointmentConfirmationRequest({
   return true;
 }
 
+export async function notifyOwnerOfReschedule(appointment: {
+  clientName: string;
+  oldDateTime: { toDate: () => Date } | Date;
+  newDateTime: { toDate: () => Date } | Date;
+  phone: string;
+}) {
+  const config = await getConfig();
+  if (!config?.ownerTelegramChatId) return;
+
+  const oldDate = toDate(appointment.oldDateTime);
+  const newDate = toDate(appointment.newDateTime);
+  const serviceName = config.serviceName || "Appointment";
+  const tz = config.timezone || "Europe/Kyiv";
+  const oldDateStr = formatInTimeZone(oldDate, tz, "dd.MM.yyyy HH:mm");
+  const newDateStr = formatInTimeZone(newDate, tz, "dd.MM.yyyy HH:mm");
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  const buttons = appUrl
+    ? buildInlineKeyboard([[{ text: "📋 Адмін-панель", url: `${appUrl}/admin` }]])
+    : undefined;
+
+  await sendMessage(
+    config.ownerTelegramChatId,
+    `🔄 Перенесено!\n👤 ${appointment.clientName}\n📱 ${appointment.phone}\n📅 ${serviceName}\n📆 ${oldDateStr} → ${newDateStr}`,
+    { replyMarkup: buttons }
+  );
+}
+
 export async function notifyOwnerOfNewBooking(appointment: {
   clientName: string;
   dateTime: { toDate: () => Date } | Date;
