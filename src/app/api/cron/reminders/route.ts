@@ -3,7 +3,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { sendMessage, buildInlineKeyboard } from "@/lib/telegram/bot";
 import { reminderMessage } from "@/lib/telegram/messages";
 import { generateGoogleCalendarUrl } from "@/lib/calendar/client-links";
-import { Timestamp } from "firebase-admin/firestore";
+import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { listCalendarEvents } from "@/lib/calendar/google";
 import { notifyClientOfCancellation } from "@/lib/telegram/notifications";
 import { startOfDay, endOfDay, addDays } from "date-fns";
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
   let calendarCancelled = 0;
   try {
     const syncStart = startOfDay(now);
-    const syncEnd = endOfDay(addDays(now, 7));
+    const syncEnd = endOfDay(addDays(now, 90));
     const calendarEvents = await listCalendarEvents(syncStart, syncEnd);
     const calendarEventIds = new Set(calendarEvents.map((e) => e.id).filter(Boolean));
 
@@ -147,6 +147,12 @@ export async function GET(request: NextRequest) {
           updatedAt: Timestamp.now(),
         });
         if (data.clientId) {
+          try {
+            await adminDb.collection("clients").doc(data.clientId).update({
+              cancelledAppointments: FieldValue.increment(1),
+              updatedAt: Timestamp.now(),
+            });
+          } catch {}
           try {
             await notifyClientOfCancellation({ clientId: data.clientId, dateTime: data.dateTime });
           } catch {}
