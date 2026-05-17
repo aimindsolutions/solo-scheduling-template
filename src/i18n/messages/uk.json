@@ -54,7 +54,11 @@
       "googleCalendar": "Google Calendar",
       "downloadIcs": "Завантажити .ics файл",
       "backToHome": "На головну",
-      "backToCabinet": "До особистого кабінету"
+      "backToCabinet": "До особистого кабінету",
+      "telegramConnect": "Підключіть Telegram для підтвердження та нагадувань",
+      "orScanQr": "або відскануйте QR-код",
+      "createAccount": "Створити кабінет",
+      "createAccountPrompt": "Зареєструйтесь, щоб керувати записами онлайн"
     }
   },
   "validation": {

@@ -54,7 +54,11 @@
       "googleCalendar": "Google Calendar",
       "downloadIcs": "Download .ics file",
       "backToHome": "Back to Home",
-      "backToCabinet": "Back to My Cabinet"
+      "backToCabinet": "Back to My Cabinet",
+      "telegramConnect": "Connect Telegram to confirm and receive reminders",
+      "orScanQr": "or scan the QR code",
+      "createAccount": "Create Account",
+      "createAccountPrompt": "Sign up to manage your appointments online"
     }
   },
   "validation": {
