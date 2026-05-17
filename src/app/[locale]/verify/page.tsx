@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 
 const RESEND_COOLDOWN = 60; // seconds
 const POLL_INTERVAL = 3000; // ms
@@ -81,6 +82,7 @@ export default function VerifyPage() {
           </Button>
         </Link>
         <h1 className="text-lg font-semibold">{t("title")}</h1>
+        <div className="ml-auto"><LanguageSwitcher /></div>
       </header>
 
       <main className="flex-1 flex items-center justify-center px-4">

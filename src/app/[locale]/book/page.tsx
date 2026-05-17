@@ -10,6 +10,7 @@ import { WeekOverview } from "@/components/booking/week-overview";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 
 interface ClientProfile {
   clientId: string;
@@ -42,6 +43,7 @@ export default function BookPage() {
           </Button>
         </Link>
         <h1 className="text-lg font-semibold">{t("booking.title")}</h1>
+        <div className="ml-auto"><LanguageSwitcher /></div>
       </header>
 
       <main className="flex-1 flex justify-center px-4 py-8">

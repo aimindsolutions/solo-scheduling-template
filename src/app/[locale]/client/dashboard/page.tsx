@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatInTimeZone } from "@/lib/date-utils";
 import type { AppointmentStatus } from "@/types";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 
 interface AppointmentRow {
   id: string;
@@ -106,9 +107,12 @@ export default function ClientDashboardPage() {
     <div className="flex flex-col min-h-screen">
       <header className="flex items-center justify-between px-6 py-4 border-b">
         <h1 className="text-lg font-semibold">{t("title")}</h1>
-        <Button variant="ghost" size="sm" onClick={handleLogout}>
-          {t("logout")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            {t("logout")}
+          </Button>
+        </div>
       </header>
 
       <main className="flex-1 px-4 py-8 max-w-2xl mx-auto w-full">

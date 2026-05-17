@@ -37,6 +37,13 @@ const statusColor: Record<string, string> = {
 
 const DEFAULT_CARDS = ["today_all", "today_confirmed", "today_booked", "upcoming_all"];
 
+const CARD_CANONICAL_ORDER = [
+  "today_all", "today_confirmed", "today_booked", "today_cancelled",
+  "week_all", "week_confirmed", "week_booked",
+  "month_all", "month_confirmed", "month_booked",
+  "upcoming_all", "upcoming_confirmed", "upcoming_booked",
+];
+
 function cardLabel(key: string): string {
   const labels: Record<string, string> = {
     today_all:        "Today",
@@ -180,9 +187,13 @@ export default function AdminDashboardPage() {
     return <div className="text-muted-foreground">Loading...</div>;
   }
 
+  const sortedCards = [...dashboardCards].sort(
+    (a, b) => CARD_CANONICAL_ORDER.indexOf(a) - CARD_CANONICAL_ORDER.indexOf(b)
+  );
+
   const gridCols =
-    dashboardCards.length <= 2 ? "grid-cols-2" :
-    dashboardCards.length === 3 ? "grid-cols-2 md:grid-cols-3" :
+    sortedCards.length <= 2 ? "grid-cols-2" :
+    sortedCards.length === 3 ? "grid-cols-2 md:grid-cols-3" :
     "grid-cols-2 md:grid-cols-4";
 
   return (
@@ -201,7 +212,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className={`grid ${gridCols} gap-4`}>
-        {dashboardCards.map((key) => (
+        {sortedCards.map((key) => (
           <Card key={key}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">{cardLabel(key)}</CardTitle>

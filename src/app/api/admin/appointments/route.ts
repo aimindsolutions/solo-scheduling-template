@@ -3,7 +3,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { verifyAdminAuth } from "@/lib/api-auth";
 import { parseInTimeZone } from "@/lib/date-utils";
-import { createCalendarEvent } from "@/lib/calendar/google";
+import { createCalendarEvent, confirmCalendarEvent } from "@/lib/calendar/google";
 import {
   notifyClientOfConfirmation,
   sendAppointmentConfirmationRequest,
@@ -88,6 +88,9 @@ export async function POST(request: NextRequest) {
       });
       if (calendarEventId) {
         await aptRef.update({ googleCalendarEventId: calendarEventId });
+        if (!requireConfirmation) {
+          try { await confirmCalendarEvent(calendarEventId); } catch {}
+        }
       }
     } catch {
       // Calendar is non-critical — continue

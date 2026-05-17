@@ -9,6 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { BookingDatePicker } from "@/components/booking/date-picker";
 import { BookingTimeSlots } from "@/components/booking/time-slots";
 import { use } from "react";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 
 export default function ReschedulePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -56,6 +57,7 @@ export default function ReschedulePage({ params }: { params: Promise<{ id: strin
           </Button>
         </Link>
         <h1 className="text-lg font-semibold">{t("reschedule")}</h1>
+        <div className="ml-auto"><LanguageSwitcher /></div>
       </header>
 
       <main className="flex-1 flex justify-center px-4 py-8">

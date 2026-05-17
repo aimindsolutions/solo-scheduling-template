@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft } from "lucide-react";
 import { normalizePhone } from "@/lib/utils";
 import { getGoogleIdToken, signInWithGoogleRedirect, getGoogleIdTokenFromRedirect } from "@/lib/firebase/auth";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 
 export default function LoginPage() {
   const t = useTranslations("auth.login");
@@ -127,6 +128,7 @@ export default function LoginPage() {
           </Button>
         </Link>
         <h1 className="text-lg font-semibold">{t("title")}</h1>
+        <div className="ml-auto"><LanguageSwitcher /></div>
       </header>
 
       <main className="flex-1 flex items-center justify-center px-4">

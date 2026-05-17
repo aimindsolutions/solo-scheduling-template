@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Calendar, Download } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 
 export default function BookingSuccessPage() {
   const t = useTranslations("booking.success");
@@ -38,6 +39,9 @@ export default function BookingSuccessPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <header className="flex items-center justify-end px-6 py-4 border-b">
+        <LanguageSwitcher />
+      </header>
       <main className="flex-1 flex items-center justify-center px-4 py-8">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
