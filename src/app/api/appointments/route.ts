@@ -207,14 +207,24 @@ export async function GET(request: NextRequest) {
   const configSnap = await adminDb.collection("businessConfig").doc("main").get();
   const tz = configSnap.exists ? configSnap.data()!.timezone || "Europe/Kyiv" : "Europe/Kyiv";
 
+  const fromParam = searchParams.get("from");
+  const toParam = searchParams.get("to");
+
   let query: Query = adminDb.collection("appointments");
 
   if (clientIdFilter) {
     query = query
       .where("clientId", "==", clientIdFilter)
-      .orderBy("dateTime", "desc"); // most recent first for client history
+      .orderBy("dateTime", "desc");
   } else {
-    query = query.orderBy("dateTime", "asc"); // upcoming first for main dashboard
+    query = query.orderBy("dateTime", "asc");
+  }
+
+  if (fromParam) {
+    query = query.where("dateTime", ">=", Timestamp.fromDate(new Date(fromParam)));
+  }
+  if (toParam) {
+    query = query.where("dateTime", "<=", Timestamp.fromDate(new Date(toParam)));
   }
 
   query = query.limit(pageSize);

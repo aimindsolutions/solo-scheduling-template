@@ -30,3 +30,10 @@ export async function signOut() {
 export function onAuthChange(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);
 }
+
+export async function getGoogleIdToken(): Promise<string> {
+  const result = await signInWithPopup(auth, googleProvider);
+  const idToken = await result.user.getIdToken();
+  await firebaseSignOut(auth);
+  return idToken;
+}

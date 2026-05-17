@@ -27,6 +27,8 @@ import {
 } from "date-fns";
 import { formatInTimeZone } from "@/lib/date-utils";
 
+type CalendarView = "1w" | "2w" | "1m";
+
 interface AppointmentData {
   id: string;
   clientName: string;
@@ -59,9 +61,10 @@ const statusDot: Record<string, string> = {
 export default function AdminCalendarPage() {
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [timezone, setTimezone] = useState("Europe/Kyiv");
-  const [weekStart, setWeekStart] = useState(() =>
-    startOfWeek(new Date(), { weekStartsOn: 1 })
-  );
+  const [view, setView] = useState<CalendarView>("1m");
+  // anchor for week/2-week views
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  // anchor for month view
   const [monthStart, setMonthStart] = useState(() => startOfMonth(new Date()));
   const [loading, setLoading] = useState(true);
   const [showCancelled, setShowCancelled] = useState(false);
@@ -72,25 +75,55 @@ export default function AdminCalendarPage() {
     apt: AppointmentData;
   } | null>(null);
 
+  // Compute visible date range from current view
+  const { rangeStart, rangeEnd, days, monthCells } = (() => {
+    if (view === "1w") {
+      const start = weekStart;
+      const end = addDays(weekStart, 6);
+      return {
+        rangeStart: start,
+        rangeEnd: end,
+        days: Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+        monthCells: null,
+      };
+    }
+    if (view === "2w") {
+      const start = weekStart;
+      const end = addDays(weekStart, 13);
+      return {
+        rangeStart: start,
+        rangeEnd: end,
+        days: Array.from({ length: 14 }, (_, i) => addDays(weekStart, i)),
+        monthCells: null,
+      };
+    }
+    // 1m
+    const start = startOfMonth(monthStart);
+    const end = endOfMonth(monthStart);
+    const allDays = eachDayOfInterval({ start, end });
+    const leading = (getDay(start) + 6) % 7;
+    const cells: (Date | null)[] = [...Array(leading).fill(null), ...allDays];
+    const rem = cells.length % 7;
+    if (rem > 0) cells.push(...Array(7 - rem).fill(null));
+    return { rangeStart: start, rangeEnd: end, days: allDays, monthCells: cells };
+  })();
+
   const fetchAppointments = useCallback(async () => {
+    setLoading(true);
     try {
-      const all: AppointmentData[] = [];
-      let cursor: string | null = null;
-      do {
-        const url = cursor ? `/api/appointments?cursor=${cursor}` : "/api/appointments";
-        const res = await adminFetch(url);
-        const data = await res.json();
-        all.push(...(data.appointments || []));
-        if (data.timezone) setTimezone(data.timezone);
-        cursor = data.nextCursor ?? null;
-      } while (cursor);
-      setAppointments(all);
+      const from = rangeStart.toISOString();
+      const to = rangeEnd.toISOString();
+      const res = await adminFetch(`/api/appointments?from=${from}&to=${to}&limit=200`);
+      const data = await res.json();
+      setAppointments(data.appointments || []);
+      if (data.timezone) setTimezone(data.timezone);
     } catch {
       setAppointments([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, weekStart, monthStart]);
 
   useEffect(() => {
     fetchAppointments();
@@ -109,21 +142,16 @@ export default function AdminCalendarPage() {
     return formatInTimeZone(iso, timezone, "yyyy-MM-dd");
   }
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  function navigate(dir: 1 | -1) {
+    if (view === "1w") setWeekStart((d) => addDays(d, dir * 7));
+    else if (view === "2w") setWeekStart((d) => addDays(d, dir * 14));
+    else setMonthStart((d) => startOfMonth(addMonths(d, dir)));
+  }
 
-  // Month grid: Mon-aligned, with leading blank cells
-  const monthFirst = startOfMonth(monthStart);
-  const monthLast = endOfMonth(monthStart);
-  const monthDays = eachDayOfInterval({ start: monthFirst, end: monthLast });
-  const leadingBlanks = (getDay(monthFirst) + 6) % 7; // 0=Mon…6=Sun
-  const monthCells: (Date | null)[] = [
-    ...Array(leadingBlanks).fill(null),
-    ...monthDays,
-  ];
-  // Pad to complete last row
-  const remainder = monthCells.length % 7;
-  if (remainder > 0) {
-    monthCells.push(...Array(7 - remainder).fill(null));
+  function rangeLabel() {
+    if (view === "1w") return `${format(weekStart, "d MMM")} — ${format(addDays(weekStart, 6), "d MMM yyyy")}`;
+    if (view === "2w") return `${format(weekStart, "d MMM")} — ${format(addDays(weekStart, 13), "d MMM yyyy")}`;
+    return format(monthStart, "MMMM yyyy");
   }
 
   async function handleStatusChange(aptId: string, newStatus: string) {
@@ -150,28 +178,21 @@ export default function AdminCalendarPage() {
       .filter((a) => getAptDateStr(a.dateTime) === dayStr && (showCancelled || a.status !== "cancelled"))
       .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
     const isToday = isSameDay(day, new Date());
-    const isCurrentMonth = isSameMonth(day, monthStart);
+    const isCurrentMonth = view === "1m" ? isSameMonth(day, monthStart) : true;
 
     return (
       <Card className={`${isToday ? "border-primary" : ""} ${compact && !isCurrentMonth ? "opacity-40" : ""}`}>
         <CardHeader className="p-2 pb-1">
           <div className="flex items-center justify-between">
-            <CardTitle
-              className={`text-xs ${isToday ? "text-primary font-bold" : "text-muted-foreground"}`}
-            >
+            <CardTitle className={`text-xs ${isToday ? "text-primary font-bold" : "text-muted-foreground"}`}>
               {compact ? format(day, "d") : format(day, "EEE d")}
             </CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5"
-              onClick={() => setDayView(day)}
-            >
+            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setDayView(day)}>
               <Eye className="h-3 w-3" />
             </Button>
           </div>
         </CardHeader>
-        <CardContent className={`p-2 pt-0 space-y-0.5 ${compact ? "min-h-[60px]" : "min-h-[100px]"}`}>
+        <CardContent className={`p-2 pt-0 space-y-0.5 ${compact ? "min-h-[56px]" : "min-h-[100px]"}`}>
           {dayAppointments.map((apt) => (
             <button
               key={apt.id}
@@ -189,9 +210,7 @@ export default function AdminCalendarPage() {
               )}
             </button>
           ))}
-          {dayAppointments.length === 0 && (
-            <p className="text-xs text-muted-foreground">—</p>
-          )}
+          {dayAppointments.length === 0 && <p className="text-xs text-muted-foreground">—</p>}
         </CardContent>
       </Card>
     );
@@ -203,9 +222,7 @@ export default function AdminCalendarPage() {
     return (
       <Dialog open={!!selectedApt} onOpenChange={() => setSelectedApt(null)}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{apt.clientName}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{apt.clientName}</DialogTitle></DialogHeader>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Status</span>
@@ -243,35 +260,15 @@ export default function AdminCalendarPage() {
           {apt.status !== "cancelled" && (
             <DialogFooter className="flex-col gap-2 sm:flex-row">
               {apt.status === "booked" && (
-                <Button
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => setConfirmAction({ type: "confirm", apt })}
-                >
+                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setConfirmAction({ type: "confirm", apt })}>
                   <CheckCircle className="h-4 w-4 mr-1" /> Confirm
                 </Button>
               )}
               {(apt.status === "booked" || apt.status === "confirmed") && (
                 <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setConfirmAction({ type: "complete", apt })}
-                  >
-                    Complete
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setConfirmAction({ type: "no_show", apt })}
-                  >
-                    No Show
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setConfirmAction({ type: "cancel", apt })}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => setConfirmAction({ type: "complete", apt })}>Complete</Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmAction({ type: "no_show", apt })}>No Show</Button>
+                  <Button size="sm" variant="destructive" onClick={() => setConfirmAction({ type: "cancel", apt })}>
                     <Trash2 className="h-4 w-4 mr-1" /> Cancel
                   </Button>
                 </>
@@ -294,37 +291,22 @@ export default function AdminCalendarPage() {
     return (
       <Dialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Confirm Action</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Confirm Action</DialogTitle></DialogHeader>
           <p className="text-sm">{labels[confirmAction.type]}</p>
           <p className="text-sm text-muted-foreground">
             {confirmAction.apt.clientName} — {fmtShort(confirmAction.apt.dateTime)}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmAction(null)}>
-              Back
-            </Button>
+            <Button variant="outline" onClick={() => setConfirmAction(null)}>Back</Button>
             {confirmAction.type === "cancel" ? (
-              <Button
-                variant="destructive"
-                onClick={() => handleDelete(confirmAction.apt.id)}
-              >
+              <Button variant="destructive" onClick={() => handleDelete(confirmAction.apt.id)}>
                 Cancel Appointment
               </Button>
             ) : (
-              <Button
-                onClick={() =>
-                  handleStatusChange(
-                    confirmAction.apt.id,
-                    confirmAction.type === "confirm"
-                      ? "confirmed"
-                      : confirmAction.type === "complete"
-                        ? "completed"
-                        : "no_show"
-                  )
-                }
-              >
+              <Button onClick={() => handleStatusChange(confirmAction.apt.id,
+                confirmAction.type === "confirm" ? "confirmed"
+                  : confirmAction.type === "complete" ? "completed" : "no_show"
+              )}>
                 Confirm
               </Button>
             )}
@@ -344,24 +326,17 @@ export default function AdminCalendarPage() {
     return (
       <Dialog open={!!dayView} onOpenChange={() => setDayView(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{format(dayView, "EEEE, d MMMM yyyy")}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{format(dayView, "EEEE, d MMMM yyyy")}</DialogTitle></DialogHeader>
           {dayApts.length === 0 ? (
             <p className="text-muted-foreground text-sm">No appointments</p>
           ) : (
             <div className="space-y-3">
               {dayApts.map((apt) => (
-                <div
-                  key={apt.id}
-                  className={`p-3 border rounded-lg space-y-2 ${apt.status === "cancelled" ? "opacity-60 border-red-200 dark:border-red-900/50" : ""}`}
-                >
+                <div key={apt.id} className={`p-3 border rounded-lg space-y-2 ${apt.status === "cancelled" ? "opacity-60 border-red-200 dark:border-red-900/50" : ""}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-2.5 h-2.5 rounded-full ${statusDot[apt.status]}`} />
-                      <span className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>
-                        {fmtTime(apt.dateTime)}
-                      </span>
+                      <span className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>{fmtTime(apt.dateTime)}</span>
                       <span>—</span>
                       <span className={`font-medium ${apt.status === "cancelled" ? "line-through" : ""}`}>{apt.clientName}</span>
                     </div>
@@ -372,29 +347,17 @@ export default function AdminCalendarPage() {
                     <span>Duration: {apt.durationMinutes} min</span>
                     <span>Source: {apt.source}</span>
                   </div>
-                  {apt.notes && (
-                    <p className="text-sm p-2 bg-muted rounded">{apt.notes}</p>
-                  )}
+                  {apt.notes && <p className="text-sm p-2 bg-muted rounded">{apt.notes}</p>}
                   {apt.status !== "cancelled" && (
                     <div className="flex gap-2 pt-1">
                       {apt.status === "booked" && (
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                          onClick={() => setConfirmAction({ type: "confirm", apt })}
-                        >
+                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                          onClick={() => setConfirmAction({ type: "confirm", apt })}>
                           Confirm
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-7 text-xs"
-                        onClick={() => {
-                          setDayView(null);
-                          setConfirmAction({ type: "cancel", apt });
-                        }}
-                      >
+                      <Button size="sm" variant="destructive" className="h-7 text-xs"
+                        onClick={() => { setDayView(null); setConfirmAction({ type: "cancel", apt }); }}>
                         Cancel
                       </Button>
                     </div>
@@ -408,16 +371,42 @@ export default function AdminCalendarPage() {
     );
   }
 
+  const cols = view === "2w" ? "grid-cols-7" : view === "1w" ? "grid-cols-7" : "grid-cols-7";
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">Calendar</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowCancelled((v) => !v)}
-          className="gap-1.5 shrink-0"
-        >
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-2xl font-bold mr-2">Calendar</h1>
+
+        {/* View toggle */}
+        <div className="flex rounded-md border overflow-hidden">
+          {(["1w", "2w", "1m"] as CalendarView[]).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                view === v
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background hover:bg-accent text-foreground"
+              }`}
+            >
+              {v === "1w" ? "1W" : v === "2w" ? "2W" : "1M"}
+            </button>
+          ))}
+        </div>
+
+        {/* Navigation */}
+        <Button variant="outline" size="icon" className="shrink-0" onClick={() => navigate(-1)}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="text-sm font-medium flex-1 text-center min-w-[160px]">{rangeLabel()}</span>
+        <Button variant="outline" size="icon" className="shrink-0" onClick={() => navigate(1)}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+
+        {/* Show cancelled */}
+        <Button variant="outline" size="sm" onClick={() => setShowCancelled((v) => !v)} className="gap-1.5 shrink-0">
           {showCancelled ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           <span className="hidden sm:inline">{showCancelled ? "Hide cancelled" : "Show cancelled"}</span>
         </Button>
@@ -427,75 +416,28 @@ export default function AdminCalendarPage() {
         <div className="text-muted-foreground">Loading...</div>
       ) : (
         <>
-          {/* Mobile: week view */}
-          <div className="md:hidden space-y-3">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => setWeekStart((d) => addDays(d, -7))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium flex-1 text-center">
-                {format(weekStart, "d MMM")} — {format(addDays(weekStart, 6), "d MMM yyyy")}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => setWeekStart((d) => addDays(d, 7))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+          {/* 1W and 2W: simple linear grid */}
+          {(view === "1w" || view === "2w") && (
+            <div className={`grid ${cols} gap-1`}>
+              {days.map((day) => <DayCell key={day.toISOString()} day={day} />)}
             </div>
-            <div className="grid grid-cols-7 gap-1">
-              {weekDays.map((day) => (
-                <DayCell key={day.toISOString()} day={day} compact />
-              ))}
-            </div>
-          </div>
+          )}
 
-          {/* Desktop: month view */}
-          <div className="hidden md:block space-y-3">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setMonthStart((d) => startOfMonth(addMonths(d, -1)))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium flex-1 text-center">
-                {format(monthStart, "MMMM yyyy")}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setMonthStart((d) => startOfMonth(addMonths(d, 1)))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+          {/* 1M: calendar-style with weekday header + blank leading cells */}
+          {view === "1m" && (
+            <div className="space-y-1">
+              <div className="grid grid-cols-7 gap-1">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                  <div key={d} className="text-xs text-center font-medium text-muted-foreground py-1">{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {monthCells!.map((day, i) =>
+                  day ? <DayCell key={day.toISOString()} day={day} compact /> : <div key={`b-${i}`} />
+                )}
+              </div>
             </div>
-            {/* Weekday header row */}
-            <div className="grid grid-cols-7 gap-1 mb-1">
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                <div key={d} className="text-xs text-center font-medium text-muted-foreground py-1">
-                  {d}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {monthCells.map((day, i) =>
-                day ? (
-                  <DayCell key={day.toISOString()} day={day} compact />
-                ) : (
-                  <div key={`blank-${i}`} />
-                )
-              )}
-            </div>
-          </div>
+          )}
         </>
       )}
 

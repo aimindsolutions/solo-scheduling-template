@@ -115,27 +115,24 @@ export async function POST(
     return NextResponse.json({ error: "Selected time slot is not available" }, { status: 409 });
   }
 
-  // Delete old calendar event
-  if (apt.googleCalendarEventId) {
-    try {
-      await deleteCalendarEvent(apt.googleCalendarEventId);
-    } catch {}
-  }
-
-  // Create new calendar event
-  try {
-    const calendarId = await createCalendarEvent({
+  // Delete old event and create new one in parallel
+  const [, calendarId] = await Promise.all([
+    apt.googleCalendarEventId
+      ? deleteCalendarEvent(apt.googleCalendarEventId).catch(() => {})
+      : Promise.resolve(),
+    createCalendarEvent({
       summary: `${config.serviceName || "Appointment"} — ${apt.clientName}`,
       startTime: newDateTime,
       durationMinutes,
       description: `Phone: ${apt.clientPhone}`,
+    }).catch(() => null),
+  ]);
+
+  if (calendarId) {
+    await adminDb.collection("appointments").doc(newAptRef.id).update({
+      googleCalendarEventId: calendarId,
     });
-    if (calendarId) {
-      await adminDb.collection("appointments").doc(newAptRef.id).update({
-        googleCalendarEventId: calendarId,
-      });
-    }
-  } catch {}
+  }
 
   try {
     await notifyOwnerOfNewBooking({

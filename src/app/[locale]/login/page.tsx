@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft } from "lucide-react";
 import { normalizePhone } from "@/lib/utils";
+import { getGoogleIdToken } from "@/lib/firebase/auth";
 
 export default function LoginPage() {
   const t = useTranslations("auth.login");
@@ -21,6 +22,28 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleGoogleLogin() {
+    setError(null);
+    setLoading(true);
+    try {
+      const idToken = await getGoogleIdToken();
+      const res = await fetch("/api/auth/google-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+      if (res.ok) {
+        router.push("/client/dashboard");
+      } else {
+        setError(t("errors.googleFailed"));
+      }
+    } catch {
+      setError(t("errors.googleFailed"));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,6 +137,25 @@ export default function LoginPage() {
               {loading ? tCommon("loading") : t("submit")}
             </Button>
           </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">{tCommon("or")}</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+          >
+            {t("continueWithGoogle")}
+          </Button>
 
           <p className="text-center text-sm text-muted-foreground">
             {t("noAccount")}{" "}

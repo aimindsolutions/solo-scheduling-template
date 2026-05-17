@@ -36,7 +36,7 @@ export default function ReschedulePage({ params }: { params: Promise<{ id: strin
       if (res.ok) {
         router.push("/client/dashboard");
       } else if (res.status === 409) {
-        setError("Цей час вже зайнятий. Оберіть інший.");
+        setError(t("slotTaken"));
       } else {
         setError(tCommon("error"));
       }

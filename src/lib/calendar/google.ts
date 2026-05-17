@@ -2,14 +2,19 @@ import { google } from "googleapis";
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar"];
 
+// Cached at module level — reused across warm invocations in Cloud Run.
+// google.auth.JWT handles token refresh internally.
+let _calendarClient: ReturnType<typeof google.calendar> | null = null;
+
 function getCalendarClient() {
+  if (_calendarClient) return _calendarClient;
   const auth = new google.auth.JWT({
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     scopes: SCOPES,
   });
-
-  return google.calendar({ version: "v3", auth });
+  _calendarClient = google.calendar({ version: "v3", auth });
+  return _calendarClient;
 }
 
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || "primary";

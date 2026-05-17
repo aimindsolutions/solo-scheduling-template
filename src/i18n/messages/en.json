@@ -69,13 +69,15 @@
       "phonePlaceholder": "+380XXXXXXXXX",
       "rememberMe": "Stay signed in for 30 days",
       "submit": "Continue",
+      "continueWithGoogle": "Continue with Google",
       "noAccount": "Don't have an account?",
       "register": "Register",
       "errors": {
         "notFound": "Phone number not found. Please register.",
         "unverified": "Phone not verified. Register again and we'll send a new verification link.",
         "tooManyAttempts": "Too many attempts. Please try again later.",
-        "generic": "Sign in failed. Please try again."
+        "generic": "Sign in failed. Please try again.",
+        "googleFailed": "Google sign-in failed. Please try again."
       }
     },
     "register": {
@@ -87,6 +89,7 @@
       "phonePlaceholder": "+380XXXXXXXXX",
       "email": "Email (optional)",
       "emailPlaceholder": "your@email.com",
+      "continueWithGoogle": "Sign up with Google",
       "consent": "I agree that my name, phone number and email will be stored and used only for managing my appointments and sending reminders, according to the Privacy Policy.",
       "consentRequired": "Consent is required",
       "submit": "Create Account",
@@ -94,7 +97,8 @@
       "login": "Sign In",
       "errors": {
         "phoneExists": "This phone number is already registered. Please sign in.",
-        "generic": "Registration failed. Please try again."
+        "generic": "Registration failed. Please try again.",
+        "googleFailed": "Google sign-up failed. Please try again."
       }
     },
     "verify": {
@@ -131,6 +135,7 @@
       "cancel": "Cancel Appointment",
       "reschedule": "Reschedule",
       "cancelConfirm": "Are you sure you want to cancel this appointment?",
+      "slotTaken": "This time is already taken. Please choose another.",
       "logout": "Sign Out",
       "preferredChannel": "Notification channel",
       "telegram": "Telegram",
